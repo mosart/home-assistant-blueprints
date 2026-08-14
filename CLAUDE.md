@@ -28,6 +28,21 @@ support commitment; see `CONTRIBUTING.md` before touching issue/PR-facing behavi
 - README.md documents each blueprint's behaviour, requirements, and a "My Home Assistant" import
   badge; keep the README in sync when adding, renaming, or removing a blueprint.
 
+### Generated content
+
+- `controllers/hue_smart_button_rom001/hue_smart_button_rom001.yaml`'s
+  `preset_short`/`preset_double` option list is generated, not hand-maintained.
+  It lives between `# BEGIN generated scene_presets options` / `# END generated
+  scene_presets options` marker comments. Regenerate it with
+  `python3 scripts/generate_scene_presets_options.py` (stdlib-only, no
+  dependencies) rather than hand-editing the options — the script only
+  touches the text strictly between those markers, so anything outside them
+  (including the surrounding YAML anchor) is untouched.
+- `scripts/*.py` have matching `scripts/test_*.py` files, run with
+  `python3 -m unittest discover -s scripts -p "test_*.py"`. No network calls
+  in tests — network-dependent code (`fetch_presets_json`) is exercised
+  manually when the script is actually run, not under test.
+
 ## Testing changes
 
 There is no build/lint/CI pipeline in this repo. Validate blueprint YAML by:

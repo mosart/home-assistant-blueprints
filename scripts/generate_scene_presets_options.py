@@ -15,12 +15,16 @@ PRESETS_URL = (
     "https://raw.githubusercontent.com/Hypfer/hass-scene_presets/master/"
     "custom_components/scene_presets/presets.json"
 )
-BLUEPRINT_PATH = (
+BLUEPRINT_PATHS = [
     Path(__file__).resolve().parent.parent
     / "controllers"
     / "hue_smart_button_rom001"
-    / "hue_smart_button_rom001.yaml"
-)
+    / "hue_smart_button_rom001.yaml",
+    Path(__file__).resolve().parent.parent
+    / "controllers"
+    / "hue_tap_dial_rdm002"
+    / "hue_tap_dial_rdm002.yaml",
+]
 BEGIN_MARKER = "# BEGIN generated scene_presets options"
 END_MARKER = "# END generated scene_presets options"
 
@@ -32,12 +36,17 @@ def fetch_presets_json(url=PRESETS_URL):
 
 def build_options(data):
     categories = {category["id"]: category["name"] for category in data["categories"]}
+    category_order = {category["id"]: index for index, category in enumerate(data["categories"])}
+    fallback_order = len(data["categories"])
+    presets = sorted(
+        data["presets"],
+        key=lambda preset: category_order.get(preset["categoryId"], fallback_order),
+    )
     options = []
-    for preset in data["presets"]:
+    for preset in presets:
         category_name = categories.get(preset["categoryId"], "Other")
         label = f"{category_name} — {preset['name']}"
         options.append({"label": label, "value": preset["id"]})
-    options.sort(key=lambda option: option["label"])
     return options
 
 
@@ -74,10 +83,11 @@ def main():
     options = build_options(data)
     if not options:
         raise SystemExit("no presets in upstream data; refusing to write an empty options list")
-    file_text = BLUEPRINT_PATH.read_text()
-    new_text = splice_generated_block(file_text, options)
-    BLUEPRINT_PATH.write_text(new_text)
-    print(f"Wrote {len(options)} options to {BLUEPRINT_PATH}")
+    for path in BLUEPRINT_PATHS:
+        file_text = path.read_text()
+        new_text = splice_generated_block(file_text, options)
+        path.write_text(new_text)
+        print(f"Wrote {len(options)} options to {path}")
 
 
 if __name__ == "__main__":

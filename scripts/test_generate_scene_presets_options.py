@@ -8,16 +8,16 @@ from generate_scene_presets_options import (
 
 
 class BuildOptionsTests(unittest.TestCase):
-    def test_labels_are_category_prefixed_and_sorted(self):
+    def test_orders_by_category_declaration_order_preserving_position_within_category(self):
         data = {
             "categories": [
-                {"id": "cat-cozy", "name": "Cozy"},
                 {"id": "cat-party", "name": "Party vibes"},
+                {"id": "cat-cozy", "name": "Cozy"},
             ],
             "presets": [
+                {"id": "id-rio", "categoryId": "cat-party", "name": "Rio"},
                 {"id": "id-warm", "categoryId": "cat-cozy", "name": "Warm embrace"},
-                {"id": "id-miami-1", "categoryId": "cat-party", "name": "Miami"},
-                {"id": "id-miami-2", "categoryId": "cat-cozy", "name": "Miami"},
+                {"id": "id-miami", "categoryId": "cat-party", "name": "Miami"},
             ],
         }
 
@@ -26,9 +26,9 @@ class BuildOptionsTests(unittest.TestCase):
         self.assertEqual(
             options,
             [
-                {"label": "Cozy — Miami", "value": "id-miami-2"},
+                {"label": "Party vibes — Rio", "value": "id-rio"},
+                {"label": "Party vibes — Miami", "value": "id-miami"},
                 {"label": "Cozy — Warm embrace", "value": "id-warm"},
-                {"label": "Party vibes — Miami", "value": "id-miami-1"},
             ],
         )
 

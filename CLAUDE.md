@@ -30,14 +30,19 @@ support commitment; see `CONTRIBUTING.md` before touching issue/PR-facing behavi
 
 ### Generated content
 
-- `controllers/hue_smart_button_rom001/hue_smart_button_rom001.yaml`'s
-  `preset_short`/`preset_double` option list is generated, not hand-maintained.
-  It lives between `# BEGIN generated scene_presets options` / `# END generated
-  scene_presets options` marker comments. Regenerate it with
-  `python3 scripts/generate_scene_presets_options.py` (stdlib-only, no
+- Both `controllers/hue_smart_button_rom001/hue_smart_button_rom001.yaml`'s
+  `preset_short`/`preset_double` inputs and
+  `controllers/hue_tap_dial_rdm002/hue_tap_dial_rdm002.yaml`'s 8
+  `button_N_short`/`button_N_double` inputs share one option list per file,
+  generated (not hand-maintained) from the same upstream fetch. Each file's
+  list lives between its own `# BEGIN generated scene_presets options` /
+  `# END generated scene_presets options` marker comments. Regenerate both
+  with `python3 scripts/generate_scene_presets_options.py` (stdlib-only, no
   dependencies) rather than hand-editing the options — the script only
-  touches the text strictly between those markers, so anything outside them
-  (including the surrounding YAML anchor) is untouched.
+  touches the text strictly between each file's own markers, so anything
+  outside them (including the surrounding YAML anchor) is untouched.
+  Adding a third blueprint that reuses this list means adding its path to
+  `BLUEPRINT_PATHS` in the script.
 - `scripts/*.py` have matching `scripts/test_*.py` files, run with
   `python3 -m unittest discover -s scripts -p "test_*.py"`. No network calls
   in tests — network-dependent code (`fetch_presets_json`) is exercised

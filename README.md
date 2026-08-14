@@ -30,12 +30,19 @@ Controller for the Philips Hue Smart Button, paired through ZHA.
   area has no on/off state of its own, so the blueprint needs one entity to read
   it from. *Settings → Devices & services → Helpers → Group → Light group*.
 
-#### Preset IDs
+#### Choosing presets
 
-The two preset inputs expect Scene Presets IDs, not names. You can find them in
-the [preset overview](https://github.com/Hypfer/hass-scene_presets/blob/master/custom_components/scene_presets/assets/Readme.md),
-or apply a preset in the Scene Presets panel and click the robot icon in the top
-right to read off the exact service call.
+The two preset inputs are a searchable dropdown, labeled the same way the
+Scene Presets panel groups them (`Category — Preset name`) — type to filter.
+
+If you've added a preset locally (via `userdata/`) it won't be in the list;
+type its ID directly into the field instead of picking an option, and it will
+be used as-is.
+
+The dropdown is generated from upstream preset data by
+`scripts/generate_scene_presets_options.py`. If Hypfer/hass-scene_presets adds
+new presets and you want them reflected here, run
+`python3 scripts/generate_scene_presets_options.py` and review the diff.
 
 #### Notes on behaviour
 

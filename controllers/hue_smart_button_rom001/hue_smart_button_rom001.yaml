@@ -1,0 +1,192 @@
+blueprint:
+  name: Hue Smart Button (ROM001) via ZHA
+  description: >-
+    Controller for the Philips Hue Smart Button (ROM001) on ZHA.
+
+
+    - **Short press**: toggles between off and a scene preset of your choice
+
+    - **Double press**: applies a second scene preset
+
+    - **Hold**: dims in steps; the direction reverses on every new hold
+
+
+    Requires the `scene_presets` custom integration (Hypfer/hass-scene_presets).
+    Each button needs its own toggle helper to remember the dim direction.
+  source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/hue_smart_button_rom001/hue_smart_button_rom001.yaml
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    button:
+      name: Button
+      description: The Hue Smart Button this automation responds to.
+      selector:
+        device:
+          filter:
+            - integration: zha
+              model: ROM001
+    lights:
+      name: Lights
+      description: The lights to control. Pick an area or individual lights.
+      selector:
+        target:
+          entity:
+            - domain: light
+    reference_light:
+      name: Reference entity
+      description: >-
+        Entity used to determine whether the lights are on or off. Preferably a
+        light group covering all the lights selected above.
+      selector:
+        entity:
+          domain: light
+    direction_helper:
+      name: Dim direction helper
+      description: >-
+        Toggle helper (input_boolean) that remembers which way the next hold
+        will dim. On means brighter. Use a dedicated helper per button.
+      selector:
+        entity:
+          domain: input_boolean
+    preset_short:
+      name: Preset for short press
+      description: >-
+        Scene Presets preset ID. IDs are listed in the integration's docs, or use
+        the robot icon in the Scene Presets panel to read one off.
+      selector:
+        text:
+    preset_double:
+      name: Preset for double press
+      description: Scene Presets preset ID.
+      selector:
+        text:
+    dim_step:
+      name: Dim step
+      description: How much the brightness changes per step while holding.
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 25
+          unit_of_measurement: "%"
+          mode: slider
+          step: 1
+    transition:
+      name: Transition time
+      description: How smoothly each dim step is applied.
+      default: 0.3
+      selector:
+        number:
+          min: 0
+          max: 2
+          unit_of_measurement: seconds
+          mode: box
+          step: 0.1
+
+mode: queued
+max: 25
+max_exceeded: silent
+
+variables:
+  step_size: !input dim_step
+
+triggers:
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input button
+      command: on_short_release
+    id: short
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input button
+      command: on_double_press
+    id: double
+  # The button repeats this command while held and stops on release
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input button
+      command: step
+    id: dim
+  # Fires exactly once per hold, so it is the reliable moment to flip direction
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input button
+      command: on_long_release
+    id: released
+
+conditions: []
+
+actions:
+  - choose:
+      # Short press: toggle between off and the chosen preset
+      - conditions:
+          - condition: trigger
+            id: short
+        sequence:
+          - if:
+              - condition: state
+                entity_id: !input reference_light
+                state: "on"
+            then:
+              - action: light.turn_off
+                target: !input lights
+            else:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input preset_short
+                  targets: !input lights
+
+      # Double press: second preset
+      - conditions:
+          - condition: trigger
+            id: double
+        sequence:
+          - action: scene_presets.apply_preset
+            data:
+              preset_id: !input preset_double
+              targets: !input lights
+
+      # Hold: one dim step per step event
+      - conditions:
+          - condition: trigger
+            id: dim
+        sequence:
+          # If the lights are off, always start by brightening
+          - if:
+              - condition: state
+                entity_id: !input reference_light
+                state: "off"
+            then:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: !input direction_helper
+          - if:
+              - condition: state
+                entity_id: !input direction_helper
+                state: "off"
+            then:
+              - action: light.turn_on
+                target: !input lights
+                data:
+                  brightness_step_pct: "{{ -step_size | int }}"
+                  transition: !input transition
+            else:
+              - action: light.turn_on
+                target: !input lights
+                data:
+                  brightness_step_pct: "{{ step_size | int }}"
+                  transition: !input transition
+
+      # Released: reverse the direction for the next hold
+      - conditions:
+          - condition: trigger
+            id: released
+        sequence:
+          - action: input_boolean.toggle
+            target:
+              entity_id: !input direction_helper

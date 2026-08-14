@@ -1,0 +1,12 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Home Assistant community forum
+    url: https://community.home-assistant.io/
+    about: >-
+      For questions about Home Assistant, ZHA or automations in general. This
+      tracker is only for the blueprints in this repository.
+  - name: Scene Presets integration
+    url: https://github.com/Hypfer/hass-scene_presets/issues
+    about: >-
+      For problems with presets themselves, preset IDs, or the scene_presets
+      panel.

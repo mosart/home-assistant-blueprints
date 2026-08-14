@@ -1,0 +1,43 @@
+name: Idea or request
+description: Suggest a change to an existing blueprint
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Please note up front: requests to support additional devices or other
+        Zigbee integrations (Zigbee2MQTT, deCONZ) will usually be declined. Not
+        because the idea is bad, but because untested branches are worse than
+        absent ones. Forking is encouraged and needs no permission.
+
+  - type: input
+    id: blueprint
+    attributes:
+      label: Blueprint
+      placeholder: Hue Smart Button (ROM001) via ZHA
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve
+      description: >-
+        Describe the situation you run into, rather than the solution you have
+        in mind. That leaves room for a simpler fix.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you like to help?
+      options:
+        - label: I would like to submit a pull request

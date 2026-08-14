@@ -1,0 +1,83 @@
+name: Bug report
+description: Something in a blueprint does not work as described
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Before filing, please check the automation trace to confirm the problem
+        is with the blueprint rather than with Home Assistant, ZHA or the
+        scene_presets integration. See CONTRIBUTING.md.
+
+  - type: input
+    id: blueprint
+    attributes:
+      label: Blueprint
+      placeholder: Hue Smart Button (ROM001) via ZHA
+    validations:
+      required: true
+
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.8.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-type
+    attributes:
+      label: Installation type
+      options:
+        - Home Assistant OS
+        - Home Assistant Supervised
+        - Home Assistant Container
+        - Home Assistant Core
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device model and pairing method
+      placeholder: "ROM001, paired via ZHA"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happens
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: events
+    attributes:
+      label: zha_event output
+      description: >-
+        Developer Tools → Events → listen to `zha_event`, then operate the
+        button. Paste everything that appears.
+      render: yaml
+    validations:
+      required: true
+
+  - type: textarea
+    id: trace
+    attributes:
+      label: Automation trace
+      description: >-
+        The timeline tab is usually enough. Changed variables helps too.
+      render: yaml
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you like to help?
+      options:
+        - label: I am willing to test a fix
+        - label: I would like to submit a pull request

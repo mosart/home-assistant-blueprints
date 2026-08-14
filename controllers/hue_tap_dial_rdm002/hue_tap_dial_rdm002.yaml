@@ -1,0 +1,280 @@
+blueprint:
+  name: Hue Tap Dial Switch (RDM002) via ZHA
+  description: >-
+    Controller for the Philips Hue Tap Dial Switch (RDM002) on ZHA.
+
+
+    - **Short press** (any of the 4 buttons): applies that button's preset
+
+    - **Double press** (any of the 4 buttons): applies that button's second
+    preset, if one is configured
+
+    - **Dial rotation**: adjusts brightness; turn speed controls step size
+
+
+    Requires the `scene_presets` custom integration (Hypfer/hass-scene_presets).
+    Holding a button is not supported — see the README for why.
+  source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/hue_tap_dial_rdm002/hue_tap_dial_rdm002.yaml
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    remote:
+      name: Remote
+      description: The Hue Tap Dial Switch this automation responds to.
+      selector:
+        device:
+          filter:
+            - integration: zha
+              model: RDM002
+    lights:
+      name: Lights
+      description: The lights to control. Pick an area or individual lights.
+      selector:
+        target:
+          entity:
+            - domain: light
+    button_1_short:
+      name: Button 1 — short press
+      description: Preset applied on a short press of button 1.
+      selector: &preset_selector
+        select:
+          mode: dropdown
+          options:
+            # BEGIN generated scene_presets options
+            # END generated scene_presets options
+    button_1_double:
+      name: Button 1 — double press
+      description: >-
+        Preset applied on a double press of button 1. Leave blank to do
+        nothing on double press.
+      default: ""
+      selector: *preset_selector
+    button_2_short:
+      name: Button 2 — short press
+      description: Preset applied on a short press of button 2.
+      selector: *preset_selector
+    button_2_double:
+      name: Button 2 — double press
+      description: >-
+        Preset applied on a double press of button 2. Leave blank to do
+        nothing on double press.
+      default: ""
+      selector: *preset_selector
+    button_3_short:
+      name: Button 3 — short press
+      description: Preset applied on a short press of button 3.
+      selector: *preset_selector
+    button_3_double:
+      name: Button 3 — double press
+      description: >-
+        Preset applied on a double press of button 3. Leave blank to do
+        nothing on double press.
+      default: ""
+      selector: *preset_selector
+    button_4_short:
+      name: Button 4 — short press
+      description: Preset applied on a short press of button 4.
+      selector: *preset_selector
+    button_4_double:
+      name: Button 4 — double press
+      description: >-
+        Preset applied on a double press of button 4. Leave blank to do
+        nothing on double press.
+      default: ""
+      selector: *preset_selector
+    dial_max_step:
+      name: Dial sensitivity
+      description: >-
+        Brightness change for the fastest dial spin. Slower spins scale down
+        proportionally against the dial's own reported speed.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 25
+          unit_of_measurement: "%"
+          mode: slider
+          step: 1
+    transition:
+      name: Transition time
+      description: How smoothly each brightness change is applied.
+      default: 0.2
+      selector:
+        number:
+          min: 0
+          max: 2
+          unit_of_measurement: seconds
+          mode: box
+          step: 0.1
+
+mode: queued
+max: 50
+max_exceeded: silent
+
+variables:
+  dial_max_step: !input dial_max_step
+  button_1_double: !input button_1_double
+  button_2_double: !input button_2_double
+  button_3_double: !input button_3_double
+  button_4_double: !input button_4_double
+
+triggers:
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_1_press
+    id: short_1
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_1_double_press
+    id: double_1
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_2_press
+    id: short_2
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_2_double_press
+    id: double_2
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_3_press
+    id: short_3
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_3_double_press
+    id: double_3
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_4_press
+    id: short_4
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_4_double_press
+    id: double_4
+  # The quirk already filters most button-hold artifacts (which otherwise
+  # look identical to a left turn of the dial) before they reach zha_event,
+  # but that filter is known-incomplete upstream
+  # (zigpy/zha-device-handlers#3696). Holding a button may occasionally
+  # still nudge brightness; this is inherited from the quirk, not something
+  # this blueprint filters further.
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: step_with_on_off
+    id: dial
+
+conditions: []
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: short_1
+        sequence:
+          - action: scene_presets.apply_preset
+            data:
+              preset_id: !input button_1_short
+              targets: !input lights
+      - conditions:
+          - condition: trigger
+            id: double_1
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ (button_1_double | trim) != '' }}"
+            then:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input button_1_double
+                  targets: !input lights
+      - conditions:
+          - condition: trigger
+            id: short_2
+        sequence:
+          - action: scene_presets.apply_preset
+            data:
+              preset_id: !input button_2_short
+              targets: !input lights
+      - conditions:
+          - condition: trigger
+            id: double_2
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ (button_2_double | trim) != '' }}"
+            then:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input button_2_double
+                  targets: !input lights
+      - conditions:
+          - condition: trigger
+            id: short_3
+        sequence:
+          - action: scene_presets.apply_preset
+            data:
+              preset_id: !input button_3_short
+              targets: !input lights
+      - conditions:
+          - condition: trigger
+            id: double_3
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ (button_3_double | trim) != '' }}"
+            then:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input button_3_double
+                  targets: !input lights
+      - conditions:
+          - condition: trigger
+            id: short_4
+        sequence:
+          - action: scene_presets.apply_preset
+            data:
+              preset_id: !input button_4_short
+              targets: !input lights
+      - conditions:
+          - condition: trigger
+            id: double_4
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ (button_4_double | trim) != '' }}"
+            then:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input button_4_double
+                  targets: !input lights
+      - conditions:
+          - condition: trigger
+            id: dial
+        sequence:
+          - action: light.turn_on
+            target: !input lights
+            data:
+              brightness_step_pct: >-
+                {{ (((trigger.event.data.params.step_size | int) / 255 *
+                dial_max_step) | round(0) | int) *
+                (-1 if (trigger.event.data.params.step_mode | string) in
+                ['1', 'StepMode.Down'] else 1) }}
+              transition: !input transition

@@ -45,7 +45,11 @@ blueprint:
       name: Dim direction helper
       description: >-
         Toggle helper (input_boolean) that remembers which way the next hold
-        will dim. On means brighter. Use a dedicated helper per button.
+        will dim. On means brighter. Use a dedicated helper per button — the
+        "+ Create input_boolean" option in this field's dropdown creates one
+        without leaving this screen. Suggested name: "Hue Smart Button -
+        <area or light> - Brightness toggle" (e.g. "Hue Smart Button -
+        Ouderkamer - Brightness toggle"). Suggested icon: mdi:brightness-6.
       selector:
         entity:
           domain: input_boolean
@@ -53,13 +57,11 @@ blueprint:
       name: Preset for short press
       description: >-
         Pick a preset by name (categories match the Scene Presets panel).
-        To use a preset that isn't listed — for example one added locally
-        via userdata/ — type its ID directly instead of picking an option.
+        Presets you've added locally (via userdata/) aren't included in
+        this list.
       selector: &preset_selector
         select:
           mode: dropdown
-          sort: true
-          custom_value: true
           options:
             # BEGIN generated scene_presets options
             - label: "Cozy — Dreamy dusk"

@@ -54,9 +54,9 @@ class RenderOptionsYamlTests(unittest.TestCase):
 
         self.assertEqual(
             rendered,
-            '    - label: "Cozy \\u2014 \\"Warm\\" embrace"\n'
+            '    - label: "Cozy — \\"Warm\\" embrace"\n'
             '      value: "abc-123"\n'
-            '    - label: "Party vibes \\u2014 Miami"\n'
+            '    - label: "Party vibes — Miami"\n'
             '      value: "def-456"',
         )
 
@@ -81,7 +81,7 @@ class SpliceGeneratedBlockTests(unittest.TestCase):
             "before\n"
             "    options:\n"
             "      # BEGIN generated scene_presets options\n"
-            '      - label: "Cozy \\u2014 Warm embrace"\n'
+            '      - label: "Cozy — Warm embrace"\n'
             '        value: "id-warm"\n'
             "      # END generated scene_presets options\n"
             "after\n",
@@ -106,7 +106,7 @@ class SpliceGeneratedBlockTests(unittest.TestCase):
             "before\n"
             "    options:\n"
             "      # BEGIN generated scene_presets options\n"
-            '      - label: "Cozy \\u2014 Warm embrace"\n'
+            '      - label: "Cozy — Warm embrace"\n'
             '        value: "id-warm"\n'
             "      # END generated scene_presets options\n"
             "after\n",

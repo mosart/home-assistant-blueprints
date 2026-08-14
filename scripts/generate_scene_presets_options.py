@@ -26,7 +26,7 @@ END_MARKER = "# END generated scene_presets options"
 
 
 def fetch_presets_json(url=PRESETS_URL):
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(url, timeout=30) as response:
         return json.load(response)
 
 
@@ -45,8 +45,8 @@ def render_options_yaml(options, indent):
     pad = " " * indent
     lines = []
     for option in options:
-        lines.append(f"{pad}- label: {json.dumps(option['label'])}")
-        lines.append(f"{pad}  value: {json.dumps(option['value'])}")
+        lines.append(f"{pad}- label: {json.dumps(option['label'], ensure_ascii=False)}")
+        lines.append(f"{pad}  value: {json.dumps(option['value'], ensure_ascii=False)}")
     return "\n".join(lines)
 
 
@@ -72,6 +72,8 @@ def splice_generated_block(file_text, options, begin_marker=BEGIN_MARKER, end_ma
 def main():
     data = fetch_presets_json()
     options = build_options(data)
+    if not options:
+        raise SystemExit("no presets in upstream data; refusing to write an empty options list")
     file_text = BLUEPRINT_PATH.read_text()
     new_text = splice_generated_block(file_text, options)
     BLUEPRINT_PATH.write_text(new_text)

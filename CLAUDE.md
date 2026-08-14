@@ -16,7 +16,7 @@ support commitment; see `CONTRIBUTING.md` before touching issue/PR-facing behavi
   update this if a blueprint is renamed or moved.
 - `blueprint.homeassistant.min_version` should reflect the oldest HA release the YAML actually
   needs (e.g. features used in `trigger:`/`action:` syntax, `choose:`, template functions).
-- Inputs use HA's `selector` schema (`device`, `entity`, `target`, `text`, `number`, ...). Prefer
+- Inputs use HA's `selector` schema (`device`, `entity`, `target`, `text`, `number`, `select`, ...). Prefer
   `selector: device: filter: [integration: ..., model: ...]` for device pickers so the blueprint
   only matches the intended hardware.
 - `triggers` use `id:` to tag each event trigger, and `actions` branch on
@@ -45,7 +45,9 @@ support commitment; see `CONTRIBUTING.md` before touching issue/PR-facing behavi
 
 ## Testing changes
 
-There is no build/lint/CI pipeline in this repo. Validate blueprint YAML by:
+There is no build/lint/CI pipeline in this repo (the `scripts/` generator has
+its own `unittest` suite — see "Generated content" above for the run
+command). Validate blueprint YAML by:
 - Checking it's valid YAML and matches Home Assistant's blueprint schema (top-level `blueprint:`,
   `triggers`/`conditions`/`actions` or legacy `trigger`/`condition`/`action` keys).
 - Importing it into a real Home Assistant instance (Settings → Automations → Blueprints → Import)

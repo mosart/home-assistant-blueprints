@@ -1,6 +1,10 @@
+import re
 import unittest
+from pathlib import Path
 
 from generate_scene_presets_options import (
+    BEGIN_MARKER,
+    END_MARKER,
     build_options,
     render_options_yaml,
     splice_generated_block,
@@ -115,6 +119,28 @@ class SpliceGeneratedBlockTests(unittest.TestCase):
     def test_missing_markers_raises_value_error(self):
         with self.assertRaises(ValueError):
             splice_generated_block("no markers here", [])
+
+
+class GeneratedBlocksStayInSyncTests(unittest.TestCase):
+    def test_rom001_and_rdm002_generated_blocks_are_identical(self):
+        repo_root = Path(__file__).resolve().parent.parent
+        rom001 = (
+            repo_root / "controllers" / "hue_smart_button_rom001" / "hue_smart_button_rom001.yaml"
+        ).read_text()
+        rdm002 = (
+            repo_root / "controllers" / "hue_tap_dial_rdm002" / "hue_tap_dial_rdm002.yaml"
+        ).read_text()
+
+        def extract_block(text):
+            match = re.search(
+                re.escape(BEGIN_MARKER) + r"\n(.*?)\n[ \t]*" + re.escape(END_MARKER),
+                text,
+                re.DOTALL,
+            )
+            self.assertIsNotNone(match, "markers not found")
+            return match.group(1)
+
+        self.assertEqual(extract_block(rom001), extract_block(rdm002))
 
 
 if __name__ == "__main__":

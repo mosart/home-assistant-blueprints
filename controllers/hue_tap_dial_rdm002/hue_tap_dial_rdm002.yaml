@@ -565,8 +565,8 @@ actions:
             target: !input lights
             data:
               brightness_step_pct: >-
-                {{ (((trigger.event.data.params.step_size | int) / 255 *
-                dial_max_step) | round(0) | int) *
+                {{ ([1, ((trigger.event.data.params.step_size | int) / 255 *
+                dial_max_step) | round(0) | int] | max) *
                 (-1 if (trigger.event.data.params.step_mode | string) in
                 ['1', 'StepMode.Down'] else 1) }}
               transition: !input transition

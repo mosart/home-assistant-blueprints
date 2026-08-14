@@ -48,8 +48,8 @@ blueprint:
         will dim. On means brighter. Use a dedicated helper per button — the
         "+ Create input_boolean" option in this field's dropdown creates one
         without leaving this screen. Suggested name: "Hue Smart Button -
-        <area or light> - Brightness toggle" (e.g. "Hue Smart Button -
-        Ouderkamer - Brightness toggle"). Suggested icon: mdi:brightness-6.
+        [area or light] - Brightness toggle" (e.g. "Hue Smart Button -
+        Living room - Brightness toggle"). Suggested icon: mdi:brightness-6.
       selector:
         entity:
           domain: input_boolean

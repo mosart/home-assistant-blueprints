@@ -25,7 +25,9 @@ Controller for the Philips Hue Smart Button, paired through ZHA.
   integration, installed through HACS.
 - A **toggle helper** (`input_boolean`) per button, used to remember which way
   the next hold will dim. Create one under
-  *Settings → Devices & services → Helpers → Toggle*.
+  *Settings → Devices & services → Helpers → Toggle*, or inline via the
+  "+ Create input_boolean" option in this field when building the
+  automation.
 - A **light group** (or any single light) to use as the reference entity. An
   area has no on/off state of its own, so the blueprint needs one entity to read
   it from. *Settings → Devices & services → Helpers → Group → Light group*.
@@ -38,6 +40,10 @@ to filter.
 
 Presets you've added locally (via `userdata/`) aren't included in this
 list; only presets shipped by Hypfer/hass-scene_presets itself are.
+
+If you typed a raw preset ID under the previous version of this field, it
+still works — but the field will show as empty in the editor, and re-saving
+the automation through the UI without picking a real option will lose it.
 
 The dropdown is generated from upstream preset data by
 `scripts/generate_scene_presets_options.py`. If Hypfer/hass-scene_presets adds

@@ -83,9 +83,8 @@ def main():
     options = build_options(data)
     if not options:
         raise SystemExit("no presets in upstream data; refusing to write an empty options list")
-    for path in BLUEPRINT_PATHS:
-        file_text = path.read_text()
-        new_text = splice_generated_block(file_text, options)
+    rendered = [(path, splice_generated_block(path.read_text(), options)) for path in BLUEPRINT_PATHS]
+    for path, new_text in rendered:
         path.write_text(new_text)
         print(f"Wrote {len(options)} options to {path}")
 

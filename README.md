@@ -71,6 +71,11 @@ Controller for the Philips Hue Tap Dial Switch, paired through ZHA.
 | Double press (any button) | Applies that button's second preset, if configured |
 | Dial rotation | Adjusts brightness; spin speed controls step size |
 
+With the **Toggle off on repeat press** input enabled (off by default), a
+short press turns the lights off instead of reapplying the preset if any of
+them are already on. Double press is unaffected and always applies its
+preset.
+
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_tap_dial_rdm002%2Fhue_tap_dial_rdm002.yaml)
 
 #### Requirements

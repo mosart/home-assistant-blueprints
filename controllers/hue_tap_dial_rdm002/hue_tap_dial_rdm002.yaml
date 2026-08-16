@@ -4,10 +4,13 @@ blueprint:
     Controller for the Philips Hue Tap Dial Switch (RDM002) on ZHA.
 
 
-    - **Short press** (any of the 4 buttons): applies that button's preset
+    - **Short press** (any of the 4 buttons): applies that button's preset.
+    With "Toggle off on repeat press" enabled, a short press instead turns
+    the lights off if any are already on.
 
     - **Double press** (any of the 4 buttons): applies that button's second
-    preset, if one is configured
+    preset, if one is configured. Always applies the preset, regardless of
+    the toggle setting.
 
     - **Dial rotation**: adjusts brightness; turn speed controls step size
 
@@ -375,6 +378,15 @@ blueprint:
         nothing on double press.
       default: ""
       selector: *preset_selector
+    toggle_off_on_repeat:
+      name: Toggle off on repeat press
+      description: >-
+        When on, a short press turns the lights off if any of them are
+        already on, instead of reapplying the preset. Double press always
+        applies its preset regardless of current light state.
+      default: false
+      selector:
+        boolean:
     dial_max_step:
       name: Dial sensitivity
       description: >-
@@ -406,6 +418,7 @@ max_exceeded: silent
 
 variables:
   dial_max_step: !input dial_max_step
+  toggle_off_on_repeat: !input toggle_off_on_repeat
   button_1_double: !input button_1_double
   button_2_double: !input button_2_double
   button_3_double: !input button_3_double
@@ -481,10 +494,24 @@ actions:
           - condition: trigger
             id: short_1
         sequence:
-          - action: scene_presets.apply_preset
-            data:
-              preset_id: !input button_1_short
-              targets: !input lights
+          - if:
+              - condition: template
+                value_template: "{{ toggle_off_on_repeat }}"
+              - condition: light.is_on
+                target: !input lights
+                options:
+                  for: "00:00:00"
+                  behavior: any
+            then:
+              - action: light.turn_off
+                target: !input lights
+                data:
+                  transition: !input transition
+            else:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input button_1_short
+                  targets: !input lights
       - conditions:
           - condition: trigger
             id: double_1
@@ -501,10 +528,24 @@ actions:
           - condition: trigger
             id: short_2
         sequence:
-          - action: scene_presets.apply_preset
-            data:
-              preset_id: !input button_2_short
-              targets: !input lights
+          - if:
+              - condition: template
+                value_template: "{{ toggle_off_on_repeat }}"
+              - condition: light.is_on
+                target: !input lights
+                options:
+                  for: "00:00:00"
+                  behavior: any
+            then:
+              - action: light.turn_off
+                target: !input lights
+                data:
+                  transition: !input transition
+            else:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input button_2_short
+                  targets: !input lights
       - conditions:
           - condition: trigger
             id: double_2
@@ -521,10 +562,24 @@ actions:
           - condition: trigger
             id: short_3
         sequence:
-          - action: scene_presets.apply_preset
-            data:
-              preset_id: !input button_3_short
-              targets: !input lights
+          - if:
+              - condition: template
+                value_template: "{{ toggle_off_on_repeat }}"
+              - condition: light.is_on
+                target: !input lights
+                options:
+                  for: "00:00:00"
+                  behavior: any
+            then:
+              - action: light.turn_off
+                target: !input lights
+                data:
+                  transition: !input transition
+            else:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input button_3_short
+                  targets: !input lights
       - conditions:
           - condition: trigger
             id: double_3
@@ -541,10 +596,24 @@ actions:
           - condition: trigger
             id: short_4
         sequence:
-          - action: scene_presets.apply_preset
-            data:
-              preset_id: !input button_4_short
-              targets: !input lights
+          - if:
+              - condition: template
+                value_template: "{{ toggle_off_on_repeat }}"
+              - condition: light.is_on
+                target: !input lights
+                options:
+                  for: "00:00:00"
+                  behavior: any
+            then:
+              - action: light.turn_off
+                target: !input lights
+                data:
+                  transition: !input transition
+            else:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: !input button_4_short
+                  targets: !input lights
       - conditions:
           - condition: trigger
             id: double_4

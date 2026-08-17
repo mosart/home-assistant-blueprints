@@ -4,13 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A personal collection of Home Assistant **automation blueprints**, each targeting one specific
-device on one specific integration (not a universal/generic controller library). There is no
-support commitment; see `CONTRIBUTING.md` before touching issue/PR-facing behavior.
+A personal collection of Home Assistant **automation blueprints**. There is no support
+commitment; see `CONTRIBUTING.md` before touching issue/PR-facing behavior.
+
+Two categories, deliberately kept apart:
+
+- **Device controllers** (`controllers/`) — each targets one specific device on one specific
+  integration, not a universal/generic controller library. This is the original and still the
+  dominant category.
+- **Room behaviour** (`rooms/`) — presence/lighting logic for a room rather than a device.
+  Integration-specific where it has to be (currently `scene_presets`), but not tied to one
+  piece of hardware. Keep this category small; it exists because presence logic genuinely
+  isn't expressible as a device controller.
 
 ## Structure and conventions
 
-- Blueprints live under `controllers/<device_slug>/<device_slug>.yaml`. One directory per device.
+- Device controllers live under `controllers/<device_slug>/<device_slug>.yaml`. One directory
+  per device. Room-behaviour blueprints live under `rooms/<behaviour_slug>/<behaviour_slug>.yaml`.
 - Each blueprint's `blueprint.source_url` must point to its own raw GitHub path
   (`https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/.../<file>.yaml`) —
   update this if a blueprint is renamed or moved.
@@ -30,10 +40,13 @@ support commitment; see `CONTRIBUTING.md` before touching issue/PR-facing behavi
 
 ### Generated content
 
-- Both `controllers/hue_smart_button_rom001/hue_smart_button_rom001.yaml`'s
-  `preset_short`/`preset_double` inputs and
-  `controllers/hue_tap_dial_rdm002/hue_tap_dial_rdm002.yaml`'s 8
-  `button_N_short`/`button_N_double` inputs share one option list per file,
+- Three files share one generated `scene_presets` option list each — the
+  `preset_short`/`preset_double` inputs in
+  `controllers/hue_smart_button_rom001/hue_smart_button_rom001.yaml`, the 8
+  `button_N_short`/`button_N_double` inputs in
+  `controllers/hue_tap_dial_rdm002/hue_tap_dial_rdm002.yaml`, and the 3
+  `preset_day`/`preset_evening`/`preset_night` inputs in
+  `rooms/presence_lighting/presence_lighting.yaml`. The lists are
   generated (not hand-maintained) from the same upstream fetch. Each file's
   list lives between its own `# BEGIN generated scene_presets options` /
   `# END generated scene_presets options` marker comments. Regenerate both
@@ -41,7 +54,7 @@ support commitment; see `CONTRIBUTING.md` before touching issue/PR-facing behavi
   dependencies) rather than hand-editing the options — the script only
   touches the text strictly between each file's own markers, so anything
   outside them (including the surrounding YAML anchor) is untouched.
-  Adding a third blueprint that reuses this list means adding its path to
+  Adding a further blueprint that reuses this list means adding its path to
   `BLUEPRINT_PATHS` in the script.
 - `scripts/*.py` have matching `scripts/test_*.py` files, run with
   `python3 -m unittest discover -s scripts -p "test_*.py"`. No network calls

@@ -24,6 +24,10 @@ BLUEPRINT_PATHS = [
     / "controllers"
     / "hue_tap_dial_rdm002"
     / "hue_tap_dial_rdm002.yaml",
+    Path(__file__).resolve().parent.parent
+    / "rooms"
+    / "presence_lighting"
+    / "presence_lighting.yaml",
 ]
 BEGIN_MARKER = "# BEGIN generated scene_presets options"
 END_MARKER = "# END generated scene_presets options"

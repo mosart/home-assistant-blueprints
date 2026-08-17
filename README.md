@@ -140,13 +140,77 @@ Clicking the dial itself (as opposed to turning it) is not exposed to Home
 Assistant at all — the device's ZHA quirk discards that event before it
 becomes visible, so it can't be used in any blueprint built on ZHA.
 
+### Presence lighting with scene memory
+
+Presence lighting for one room. Where a motion automation normally forces one
+fixed scene, this one defers to whatever scene is already in use.
+
+| Situation | Behaviour |
+| --- | --- |
+| Motion, room dark | Restores the room's last known state; falls back to the last preset a remote applied, then to the preset for the current time of day |
+| Motion while dimmed | Puts back exactly what was on before the dim |
+| No motion | Dims as a warning, then switches off |
+| Media playing or paused in the room | Postpones dimming and switching off |
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml)
+
+#### Requirements
+
+- The [`scene_presets`](https://github.com/Hypfer/hass-scene_presets) custom
+  integration, installed through HACS.
+- One `input_boolean` helper per room, for the **Dimming flag helper** input.
+  The automation sets it while it is the one holding the lights dimmed, which
+  is how returning motion knows to restore rather than leave them dim. Give
+  each room its own; sharing one between rooms makes them restore each other's
+  state.
+- Motion sensors assigned to the room's area. The automation triggers on the
+  area, not on a hand-listed sensor list, so adding a sensor to the area is
+  enough.
+
+Lights are listed as entities rather than an area because the automation
+snapshots their exact state, and a snapshot needs concrete entities.
+
+#### The three fallbacks
+
+When motion arrives in a dark room, the automation asks three questions in
+order and stops at the first answer:
+
+1. **Is there a snapshot?** Taken every time the room is dimmed, so it holds
+   whatever was really on the lights — including changes made from a
+   dashboard, a voice assistant, or anything else. Snapshots are transient and
+   are lost when Home Assistant restarts, which is what the next two are for.
+2. **Did a remote record a preset?** Set the optional **Last preset helper**
+   to the same `input_text` the Hue Tap Dial blueprint writes to.
+3. **Otherwise, what time is it?** Night between the two boundary times,
+   evening after sunset, daytime for everything else.
+
+Time of day is deliberately last. It is the answer when the room has no
+memory, not an override that reimposes a schedule on a room you just set by
+hand.
+
+#### Notes on behaviour
+
+The dim is a warning, not a setting: the automation snapshots first, so the
+dim never destroys the brightness you chose. Returning motion during the dim
+window restarts the automation, which cancels the pending switch-off and
+restores the snapshot.
+
+Switching off is skipped while a media player in the room is playing or
+paused, checked again at the moment of switching off rather than only when the
+room first went quiet.
+
 ## Why these are self-contained
 
-These blueprints target one specific device on one specific integration. That
-makes them shorter and easier to reason about than a universal controller
-blueprint, at the cost of not being reusable elsewhere. If you need broad device
-support, [Awesome HA Blueprints](https://github.com/EPMatt/awesome-ha-blueprints)
-is the better starting point.
+The `controllers/` blueprints target one specific device on one specific
+integration. That makes them shorter and easier to reason about than a
+universal controller blueprint, at the cost of not being reusable elsewhere.
+If you need broad device support,
+[Awesome HA Blueprints](https://github.com/EPMatt/awesome-ha-blueprints) is
+the better starting point.
+
+The `rooms/` blueprints are the exception: presence logic belongs to a room
+rather than a device, so it cannot be written as a device controller. They are
+still tied to `scene_presets`, so they are not generic either.
 
 ## Issues and contributions
 

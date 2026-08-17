@@ -1,5 +1,5 @@
 blueprint:
-  name: Hue Tap Dial Switch (RDM002) via ZHA
+  name: "mosart · Hue Tap Dial Switch (RDM002) via ZHA"
   description: >-
     Controller for the Philips Hue Tap Dial Switch (RDM002) on ZHA.
 

@@ -1,5 +1,5 @@
 blueprint:
-  name: Presence lighting with scene memory
+  name: "mosart · Presence lighting with scene memory"
   description: >-
     Presence lighting for one room, written to defer to the scene already in
     use instead of overriding it.

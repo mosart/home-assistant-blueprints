@@ -17,27 +17,36 @@ blueprint:
     Media playing or paused in the room postpones dimming and switching off.
 
 
+    Pick one or more areas and it takes both the motion sensors and the
+    lights from them; an optional override lets you depart from that.
+
+
     Requires the `scene_presets` custom integration
-    (Hypfer/hass-scene_presets) and one `input_boolean` per room — see the
-    README.
+    (Hypfer/hass-scene_presets) and one `input_boolean` per instance — see
+    the README.
   source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/rooms/presence_lighting/presence_lighting.yaml
   domain: automation
   homeassistant:
     min_version: 2026.7.0
   input:
     room:
-      name: Room
+      name: Rooms
       description: >-
-        Area whose motion sensors drive this automation. Media players in this
-        area postpone dimming and switching off.
+        The areas this automation covers. Their motion sensors drive it, their
+        lights are what it controls, and media players in them postpone
+        dimming and switching off. Pick more than one to treat adjoining
+        spaces as a single room.
       selector:
         area:
+          multiple: true
     lights:
-      name: Lights
+      name: Lights (override)
       description: >-
-        The lights to control. Listed as entities rather than an area because
-        the automation snapshots their exact state, which needs concrete
-        entities. May reach beyond the room itself.
+        Leave empty to control every light in the areas above — that is the
+        normal case, and it follows the areas as you move devices between
+        them. Set it only to depart from that: to control a subset, or to
+        reach a light that lives in another area.
+      default: []
       selector:
         entity:
           multiple: true
@@ -435,10 +444,20 @@ variables:
   room: !input room
   lights: !input lights
   last_preset_helper: !input last_preset_helper
-  # One snapshot scene per room, so several instances cannot overwrite
-  # each other's memory.
-  snapshot_scene_id: "presence_snapshot_{{ room }}"
-  snapshot_entity: "scene.presence_snapshot_{{ room }}"
+  # The area selector yields a list, but an instance saved before this input
+  # became multi-select still holds a bare string — accept both.
+  room_list: "{{ [room] if room is string else room }}"
+  # Single source of truth for what this automation controls: the override
+  # when set, every light in the areas otherwise. Resolved at run time, so
+  # moving a light between areas is picked up without editing anything.
+  light_entities: >-
+    {{ lights if (lights | count) > 0
+       else (room_list | map('area_entities') | sum(start=[])
+             | select('match', 'light\.') | list) }}
+  # One snapshot scene per instance, so several cannot overwrite each
+  # other's memory.
+  snapshot_scene_id: "presence_snapshot_{{ room_list | join('_') }}"
+  snapshot_entity: "scene.presence_snapshot_{{ room_list | join('_') }}"
 
 triggers:
   - trigger: motion.detected
@@ -480,16 +499,16 @@ actions:
                   - action: input_boolean.turn_off
                     target:
                       entity_id: !input dim_flag
+              # The controlled set is resolved at run time, so a native
+              # light.is_on condition cannot address it — its target is
+              # validated at load, before light_entities exists.
               - alias: Room is dark, so bring back its memory
                 conditions:
-                  - condition: not
-                    conditions:
-                      - condition: light.is_on
-                        target:
-                          entity_id: !input lights
-                        options:
-                          for: "00:00:00"
-                          behavior: any
+                  - condition: template
+                    value_template: >-
+                      {{ expand(light_entities)
+                         | selectattr('state', 'eq', 'on')
+                         | list | count == 0 }}
                 sequence:
                   - choose:
                       # The snapshot entity is per-room and therefore dynamic,
@@ -518,7 +537,7 @@ actions:
                             data:
                               preset_id: "{{ states(last_preset_helper) }}"
                               targets:
-                                entity_id: !input lights
+                                entity_id: "{{ light_entities }}"
                     default:
                       - choose:
                           - alias: Night
@@ -531,7 +550,7 @@ actions:
                                 data:
                                   preset_id: !input preset_night
                                   targets:
-                                    entity_id: !input lights
+                                    entity_id: "{{ light_entities }}"
                           - alias: Evening
                             conditions:
                               - condition: sun
@@ -541,24 +560,24 @@ actions:
                                 data:
                                   preset_id: !input preset_evening
                                   targets:
-                                    entity_id: !input lights
+                                    entity_id: "{{ light_entities }}"
                         default:
                           - action: scene_presets.apply_preset
                             data:
                               preset_id: !input preset_day
                               targets:
-                                entity_id: !input lights
+                                entity_id: "{{ light_entities }}"
       - alias: Room has gone quiet
         conditions:
           - condition: trigger
             id: no_motion
         sequence:
-          - condition: light.is_on
-            target:
-              entity_id: !input lights
-            options:
-              for: "00:00:00"
-              behavior: any
+          - alias: Nothing to dim if the room is already dark
+            condition: template
+            value_template: >-
+              {{ expand(light_entities)
+                 | selectattr('state', 'eq', 'on')
+                 | list | count > 0 }}
           - condition: not
             conditions:
               - condition: media_player.is_playing
@@ -577,14 +596,14 @@ actions:
             action: scene.create
             data:
               scene_id: "{{ snapshot_scene_id }}"
-              snapshot_entities: !input lights
+              snapshot_entities: "{{ light_entities }}"
           - action: input_boolean.turn_on
             target:
               entity_id: !input dim_flag
           - alias: Dim as a warning
             action: light.turn_on
             target:
-              entity_id: !input lights
+              entity_id: "{{ light_entities }}"
             data:
               brightness_pct: !input dim_brightness_pct
               transition: !input transition
@@ -593,7 +612,7 @@ actions:
           - alias: Still quiet, so switch off
             action: light.turn_off
             target:
-              entity_id: !input lights
+              entity_id: "{{ light_entities }}"
             data:
               transition: !input transition
           - action: input_boolean.turn_off

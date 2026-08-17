@@ -175,17 +175,32 @@ fixed scene, this one defers to whatever scene is already in use.
 
 - The [`scene_presets`](https://github.com/Hypfer/hass-scene_presets) custom
   integration, installed through HACS.
-- One `input_boolean` helper per room, for the **Dimming flag helper** input.
-  The automation sets it while it is the one holding the lights dimmed, which
-  is how returning motion knows to restore rather than leave them dim. Give
-  each room its own; sharing one between rooms makes them restore each other's
-  state.
-- Motion sensors assigned to the room's area. The automation triggers on the
-  area, not on a hand-listed sensor list, so adding a sensor to the area is
-  enough.
+- One `input_boolean` helper per instance, for the **Dimming flag helper**
+  input. The automation sets it while it is the one holding the lights
+  dimmed, which is how returning motion knows to restore rather than leave
+  them dim. Give each instance its own; sharing one makes two rooms restore
+  each other's state.
+- Motion sensors assigned to one of the selected areas. Everything is driven
+  off the areas, so adding a sensor or a lamp to one is enough — there is no
+  entity list to keep in step.
 
-Lights are listed as entities rather than an area because the automation
-snapshots their exact state, and a snapshot needs concrete entities.
+#### What it controls
+
+**Rooms** takes one or more areas and everything follows from them: their
+motion sensors trigger it, their lights are what it controls, their media
+players postpone dimming. Pick several to treat adjoining spaces as one room
+— a living room and the open kitchen beside it, say.
+
+The set of lights is resolved when the automation runs, not when you save it,
+so moving a lamp between areas is picked up without editing anything.
+
+**Lights (override)** is for departing from that: control only a subset, or
+reach a lamp that lives in another area. Leave it empty for the normal case.
+
+One consequence worth knowing: a motion sensor sitting in the wrong area
+becomes presence for that room. A driveway camera filed under the living room
+will keep the living room lit. Check the area assignments before blaming the
+automation.
 
 #### The three fallbacks
 

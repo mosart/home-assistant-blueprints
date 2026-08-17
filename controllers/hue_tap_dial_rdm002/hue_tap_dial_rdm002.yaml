@@ -5,23 +5,27 @@ blueprint:
 
 
     - **Short press** (any of the 4 buttons): applies that button's preset.
-    With "Toggle off on repeat press" enabled, a short press instead turns
-    the lights off if any are already on.
+    With "Toggle off on repeat press" enabled, pressing the button whose
+    preset is already showing switches the lights off instead; pressing a
+    different button always switches to that button's preset.
 
     - **Double press** (any of the 4 buttons): applies that button's second
     preset, if one is configured. Always applies the preset, regardless of
     the toggle setting.
+
+    - **Long press** (any of the 4 buttons): switches the lights off,
+    whichever preset is active. Off by default.
 
     - **Dial rotation**: adjusts brightness; turn speed controls step size
 
 
     Optionally records every applied preset in an `input_text` helper, so
     other automations can restore the room's last chosen scene instead of
-    forcing a fixed one.
+    forcing a fixed one. That helper is also what lets the toggle recognise a
+    repeat press, so the toggle needs it.
 
 
     Requires the `scene_presets` custom integration (Hypfer/hass-scene_presets).
-    Holding a button is not supported — see the README for why.
   source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/hue_tap_dial_rdm002/hue_tap_dial_rdm002.yaml
   domain: automation
   homeassistant:
@@ -405,6 +409,16 @@ blueprint:
         entity:
           filter:
             - domain: input_text
+    off_on_long_press:
+      name: Long press turns the lights off
+      description: >-
+        When on, holding any of the 4 buttons switches the lights off,
+        whichever preset is active. Off by default because it adds triggers
+        that fire on a gesture the device also uses for dial rotation — see
+        the README before enabling.
+      default: false
+      selector:
+        boolean:
     dial_max_step:
       name: Dial sensitivity
       description: >-
@@ -438,6 +452,10 @@ variables:
   dial_max_step: !input dial_max_step
   toggle_off_on_repeat: !input toggle_off_on_repeat
   last_preset_helper: !input last_preset_helper
+  button_1_short: !input button_1_short
+  button_2_short: !input button_2_short
+  button_3_short: !input button_3_short
+  button_4_short: !input button_4_short
   button_1_double: !input button_1_double
   button_2_double: !input button_2_double
   button_3_double: !input button_3_double
@@ -492,12 +510,39 @@ triggers:
       device_id: !input remote
       command: button_4_double_press
     id: double_4
-  # The quirk already filters most button-hold artifacts (which otherwise
-  # look identical to a left turn of the dial) before they reach zha_event,
-  # but that filter is known-incomplete upstream
-  # (zigpy/zha-device-handlers#3696). Holding a button may occasionally
-  # still nudge brightness; this is inherited from the quirk, not something
-  # this blueprint filters further.
+  # A held button also emits LevelControl steps that look like a left turn
+  # of the dial. The quirk separates them by transition_time (8 for a hold,
+  # 4 for the dial) and mutes the hold ones, but that filter is not fully
+  # settled upstream (zigpy/zha-device-handlers#3696). Any leak is harmless
+  # for the mapping below: the lights end up off either way.
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_1_hold
+    id: hold
+    enabled: !input off_on_long_press
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_2_hold
+    id: hold
+    enabled: !input off_on_long_press
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_3_hold
+    id: hold
+    enabled: !input off_on_long_press
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: button_4_hold
+    id: hold
+    enabled: !input off_on_long_press
   - trigger: event
     event_type: zha_event
     event_data:
@@ -515,7 +560,10 @@ actions:
         sequence:
           - if:
               - condition: template
-                value_template: "{{ toggle_off_on_repeat }}"
+                value_template: >-
+                  {{ toggle_off_on_repeat
+                     and (last_preset_helper | trim) != ''
+                     and states(last_preset_helper) == button_1_short }}
               - condition: light.is_on
                 target: !input lights
                 options:
@@ -567,7 +615,10 @@ actions:
         sequence:
           - if:
               - condition: template
-                value_template: "{{ toggle_off_on_repeat }}"
+                value_template: >-
+                  {{ toggle_off_on_repeat
+                     and (last_preset_helper | trim) != ''
+                     and states(last_preset_helper) == button_2_short }}
               - condition: light.is_on
                 target: !input lights
                 options:
@@ -619,7 +670,10 @@ actions:
         sequence:
           - if:
               - condition: template
-                value_template: "{{ toggle_off_on_repeat }}"
+                value_template: >-
+                  {{ toggle_off_on_repeat
+                     and (last_preset_helper | trim) != ''
+                     and states(last_preset_helper) == button_3_short }}
               - condition: light.is_on
                 target: !input lights
                 options:
@@ -671,7 +725,10 @@ actions:
         sequence:
           - if:
               - condition: template
-                value_template: "{{ toggle_off_on_repeat }}"
+                value_template: >-
+                  {{ toggle_off_on_repeat
+                     and (last_preset_helper | trim) != ''
+                     and states(last_preset_helper) == button_4_short }}
               - condition: light.is_on
                 target: !input lights
                 options:
@@ -717,6 +774,14 @@ actions:
                       entity_id: "{{ last_preset_helper }}"
                     data:
                       value: !input button_4_double
+      - conditions:
+          - condition: trigger
+            id: hold
+        sequence:
+          - action: light.turn_off
+            target: !input lights
+            data:
+              transition: !input transition
       - conditions:
           - condition: trigger
             id: dial

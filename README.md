@@ -166,7 +166,7 @@ fixed scene, this one defers to whatever scene is already in use.
 | --- | --- |
 | Motion, room dark | Restores the room's last known state; falls back to the last preset a remote applied, then to the preset for the current time of day |
 | Motion while dimmed | Puts back exactly what was on before the dim |
-| No motion | Dims as a warning, then switches off |
+| No motion (30 min, adjustable) | Dims as a warning, then switches off |
 | Media playing or paused in the room | Postpones dimming and switching off |
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml)
@@ -196,6 +196,13 @@ so moving a lamp between areas is picked up without editing anything.
 
 **Lights (override)** is for departing from that: control only a subset, or
 reach a lamp that lives in another area. Leave it empty for the normal case.
+
+A light *group* in one of the areas (a Hue room/zone light, or a light
+group helper) is left out of the derived set — only its members are
+controlled. Snapshotting both a group and its members would fight itself on
+restore, since changing a member also changes the group's state. Set the
+override explicitly if you actually want the group driven instead of its
+members.
 
 One consequence worth knowing: a motion sensor sitting in the wrong area
 becomes presence for that room. A driveway camera filed under the living room

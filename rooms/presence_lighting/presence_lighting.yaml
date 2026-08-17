@@ -399,7 +399,7 @@ blueprint:
       description: How long the room must be free of motion before dimming.
       default:
         hours: 0
-        minutes: 10
+        minutes: 30
         seconds: 0
       selector:
         duration:
@@ -450,10 +450,28 @@ variables:
   # Single source of truth for what this automation controls: the override
   # when set, every light in the areas otherwise. Resolved at run time, so
   # moving a light between areas is picked up without editing anything.
+  #
+  # The derived branch drops light *groups* (an entity whose own state
+  # carries an entity_id attribute listing members, e.g. a Hue room/zone
+  # light or a light group helper) so a group and its members aren't both
+  # snapshotted and driven — snapshotting a member changes the group's
+  # state too, so scene.turn_on would fight itself restoring both. An
+  # explicit override is trusted as-is; if you deliberately listed a group,
+  # that's your call.
   light_entities: >-
-    {{ lights if (lights | count) > 0
-       else (room_list | map('area_entities') | sum(start=[])
-             | select('match', 'light\.') | list) }}
+    {% if (lights | count) > 0 -%}
+    {{ lights }}
+    {%- else -%}
+    {%- set candidates = room_list | map('area_entities') | sum(start=[])
+        | select('match', 'light\.') | list -%}
+    {%- set ns = namespace(out=[]) -%}
+    {%- for e in candidates -%}
+      {%- if state_attr(e, 'entity_id') is none -%}
+        {%- set ns.out = ns.out + [e] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ ns.out }}
+    {%- endif %}
   # One snapshot scene per instance, so several cannot overwrite each
   # other's memory.
   snapshot_scene_id: "presence_snapshot_{{ room_list | join('_') }}"

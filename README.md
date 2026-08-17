@@ -69,12 +69,22 @@ Controller for the Philips Hue Tap Dial Switch, paired through ZHA.
 | --- | --- |
 | Short press (any button) | Applies that button's preset |
 | Double press (any button) | Applies that button's second preset, if configured |
+| Long press (any button) | Switches the lights off, if enabled |
 | Dial rotation | Adjusts brightness; spin speed controls step size |
 
-With the **Toggle off on repeat press** input enabled (off by default), a
-short press turns the lights off instead of reapplying the preset if any of
-them are already on. Double press is unaffected and always applies its
-preset.
+With the **Toggle off on repeat press** input enabled (off by default),
+pressing the button whose preset is already showing switches the lights off.
+Pressing a *different* button always switches to that button's preset, so
+the remote never turns the lights off when you meant to change scene.
+
+Recognising a repeat press means knowing which preset is currently showing,
+so this needs the **Remember last preset in** helper below. Without it the
+toggle has nothing to compare against and every short press simply applies
+its preset. Double press is unaffected and always applies its preset.
+
+With **Long press turns the lights off** enabled (also off by default),
+holding any of the four buttons switches the lights off regardless of which
+preset is active.
 
 #### Remembering the last scene
 
@@ -130,11 +140,18 @@ double press.
 
 #### Notes on behaviour
 
-Holding a button is not supported. On this device, a held button reports an
-event that looks identical to turning the dial left — a known upstream
-limitation ([zigpy/zha-device-handlers#3696](https://github.com/zigpy/zha-device-handlers/issues/3696))
-that the device's quirk only partially filters. Short press, double press,
-and dial rotation are unaffected.
+Holding a button emits a `button_N_hold` event, but it also emits
+`LevelControl` steps that look like turning the dial left. The ZHA quirk
+separates the two by transition time — 8 for a hold, 4 for the dial — and
+mutes the hold ones, but that filter is not fully settled upstream
+([zigpy/zha-device-handlers#3696](https://github.com/zigpy/zha-device-handlers/issues/3696)).
+
+That residual ambiguity is harmless for the one thing this blueprint maps
+onto a long press: if a stray step slips through it nudges the brightness a
+moment before the lights go off anyway. It is why the long-press option is
+off by default rather than assumed — and why a long press is not offered for
+anything other than switching off. Short press, double press, and dial
+rotation are unaffected.
 
 Clicking the dial itself (as opposed to turning it) is not exposed to Home
 Assistant at all — the device's ZHA quirk discards that event before it

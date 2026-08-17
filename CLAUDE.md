@@ -21,7 +21,7 @@ Two categories, deliberately kept apart:
 
 - Device controllers live under `controllers/<device_slug>/<device_slug>.yaml`. One directory
   per device. Room-behaviour blueprints live under `rooms/<behaviour_slug>/<behaviour_slug>.yaml`.
-- Each blueprint's `blueprint.name` is prefixed `mosart · ` so these sort together and stand
+- Each blueprint's `blueprint.name` is prefixed `[mosart] ` so these sort together and stand
   out from community blueprints in Home Assistant's blueprint list. Keep the prefix on any
   new blueprint; the rest of the name stays plain (no version or device-code decoration
   beyond what the name already carries).

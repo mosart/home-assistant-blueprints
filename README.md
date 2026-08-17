@@ -209,6 +209,28 @@ becomes presence for that room. A driveway camera filed under the living room
 will keep the living room lit. Check the area assignments before blaming the
 automation.
 
+#### Checking what an area selection resolves to
+
+The blueprint editor can't preview this — a field has no way to show a
+computed result from another field. Two ways to check before saving:
+
+- **Settings → Areas → open the area.** Its entity list is the live source
+  this automation reads. Anything shown there (except light groups) is
+  included.
+- **Developer Tools → Template**, for the exact same computation the
+  automation runs:
+
+  ```jinja
+  {{ ['living_room', 'kitchen']   {# your areas, by area_id #}
+     | map('area_entities') | sum(start=[])
+     | select('match', 'light\.') | list }}
+  ```
+
+  Swap in your own area IDs (visible in Settings → Areas → the area's URL,
+  or via `area_id()` if you only know the friendly name) to see exactly
+  which lights this blueprint would control — before the automation exists,
+  and again any time later to confirm nothing drifted.
+
 #### The three fallbacks
 
 When motion arrives in a dark room, the automation asks three questions in

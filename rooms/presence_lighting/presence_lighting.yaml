@@ -36,8 +36,17 @@ blueprint:
         lights are what it controls, and media players in them postpone
         dimming and switching off. Pick more than one to treat adjoining
         spaces as a single room.
+
+
+        This field can't preview which sensors and lights that resolves to —
+        Home Assistant's blueprint editor has no way to show computed results
+        from another field. To check before saving: Settings → Areas → open
+        the area — its entity list is the same one this automation reads,
+        live. Light *groups* shown there are excluded automatically (see
+        "Lights" below); everything else listed is included.
       selector:
         area:
+          multiple: true
           multiple: true
     lights:
       name: Lights (override)

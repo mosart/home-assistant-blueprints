@@ -1,5 +1,5 @@
 blueprint:
-  name: "mosart · Hue Smart Button (ROM001) via ZHA"
+  name: "[mosart] Hue Smart Button (ROM001) via ZHA"
   description: >-
     Controller for the Philips Hue Smart Button (ROM001) on ZHA.
 

@@ -76,6 +76,39 @@ short press turns the lights off instead of reapplying the preset if any of
 them are already on. Double press is unaffected and always applies its
 preset.
 
+#### Remembering the last scene
+
+Point the optional **Remember last preset in** input at an `input_text`
+helper and every preset the remote applies is written to it. That gives the
+room a "last chosen scene" that other automations can read — the pattern a
+Hue bridge gets for free, where each room tracks which scene is currently
+active and sensors fall back on it instead of forcing one fixed scene.
+
+A presence automation can then restore what you actually picked:
+
+```yaml
+- if:
+    - condition: template
+      value_template: >-
+        {{ states('input_text.living_room_last_preset')
+           not in ['', 'unknown', 'unavailable'] }}
+  then:
+    - action: scene_presets.apply_preset
+      data:
+        preset_id: "{{ states('input_text.living_room_last_preset') }}"
+        targets:
+          area_id: living_room
+  else:
+    - action: scene.turn_on
+      target:
+        entity_id: scene.living_room_bright
+```
+
+Only presses that actually apply a preset are recorded — a press that just
+toggles the lights off leaves the stored value alone, so it still reflects
+the last scene you were in. The helper needs no particular length limit; a
+preset id is 36 characters.
+
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_tap_dial_rdm002%2Fhue_tap_dial_rdm002.yaml)
 
 #### Requirements

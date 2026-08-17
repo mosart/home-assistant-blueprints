@@ -15,6 +15,11 @@ blueprint:
     - **Dial rotation**: adjusts brightness; turn speed controls step size
 
 
+    Optionally records every applied preset in an `input_text` helper, so
+    other automations can restore the room's last chosen scene instead of
+    forcing a fixed one.
+
+
     Requires the `scene_presets` custom integration (Hypfer/hass-scene_presets).
     Holding a button is not supported — see the README for why.
   source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/hue_tap_dial_rdm002/hue_tap_dial_rdm002.yaml
@@ -387,6 +392,19 @@ blueprint:
       default: false
       selector:
         boolean:
+    last_preset_helper:
+      name: Remember last preset in
+      description: >-
+        Optional `input_text` helper. Every preset this remote applies is
+        written to it, giving the room a "last chosen scene" other
+        automations can fall back on — a motion sensor can restore what you
+        picked instead of forcing one fixed scene. Nothing is written when a
+        press only toggles the lights off. Leave empty to disable.
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: input_text
     dial_max_step:
       name: Dial sensitivity
       description: >-
@@ -419,6 +437,7 @@ max_exceeded: silent
 variables:
   dial_max_step: !input dial_max_step
   toggle_off_on_repeat: !input toggle_off_on_repeat
+  last_preset_helper: !input last_preset_helper
   button_1_double: !input button_1_double
   button_2_double: !input button_2_double
   button_3_double: !input button_3_double
@@ -512,6 +531,15 @@ actions:
                 data:
                   preset_id: !input button_1_short
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input last_preset_helper
+                    data:
+                      value: !input button_1_short
       - conditions:
           - condition: trigger
             id: double_1
@@ -524,6 +552,15 @@ actions:
                 data:
                   preset_id: !input button_1_double
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input last_preset_helper
+                    data:
+                      value: !input button_1_double
       - conditions:
           - condition: trigger
             id: short_2
@@ -546,6 +583,15 @@ actions:
                 data:
                   preset_id: !input button_2_short
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input last_preset_helper
+                    data:
+                      value: !input button_2_short
       - conditions:
           - condition: trigger
             id: double_2
@@ -558,6 +604,15 @@ actions:
                 data:
                   preset_id: !input button_2_double
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input last_preset_helper
+                    data:
+                      value: !input button_2_double
       - conditions:
           - condition: trigger
             id: short_3
@@ -580,6 +635,15 @@ actions:
                 data:
                   preset_id: !input button_3_short
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input last_preset_helper
+                    data:
+                      value: !input button_3_short
       - conditions:
           - condition: trigger
             id: double_3
@@ -592,6 +656,15 @@ actions:
                 data:
                   preset_id: !input button_3_double
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input last_preset_helper
+                    data:
+                      value: !input button_3_double
       - conditions:
           - condition: trigger
             id: short_4
@@ -614,6 +687,15 @@ actions:
                 data:
                   preset_id: !input button_4_short
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input last_preset_helper
+                    data:
+                      value: !input button_4_short
       - conditions:
           - condition: trigger
             id: double_4
@@ -626,6 +708,15 @@ actions:
                 data:
                   preset_id: !input button_4_double
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: !input last_preset_helper
+                    data:
+                      value: !input button_4_double
       - conditions:
           - condition: trigger
             id: dial

@@ -1,0 +1,188 @@
+blueprint:
+  name: "[mosart] Scheduled evening dimming"
+  description: >-
+    Two-step evening dim for a set of areas.
+
+
+    - **First dim**: lights brighter than a threshold are dimmed to a target
+    level.
+
+    - **Second dim**, later: lights still brighter than a second threshold
+    are dimmed further.
+
+
+    Both steps only ever lower brightness — a light that is off stays off,
+    and a light already at or below a step's threshold is left alone. Select
+    every area to cover every light in the house.
+  source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/rooms/scheduled_dimming/scheduled_dimming.yaml
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    areas:
+      name: Areas
+      description: >-
+        The areas this automation dims the lights of. Select every area to
+        cover the whole house. The set of lights is resolved when the
+        automation runs, not when you save it, so moving a lamp between areas
+        is picked up without editing anything.
+      selector:
+        area:
+          multiple: true
+    lights:
+      name: Lights (override)
+      description: >-
+        Leave empty to control every light in the areas above — that is the
+        normal case. Set it only to depart from that: to control a subset, or
+        to reach a light that lives in another area.
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: light
+    step1_time:
+      name: First dim — time
+      default: "22:30:00"
+      selector:
+        time:
+    step1_threshold_pct:
+      name: First dim — only if brighter than
+      description: Lights at or below this brightness are left alone.
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+          step: 1
+    step1_target_pct:
+      name: First dim — dim to
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+          step: 1
+    step2_time:
+      name: Second dim — time
+      default: "23:00:00"
+      selector:
+        time:
+    step2_threshold_pct:
+      name: Second dim — only if brighter than
+      description: Lights at or below this brightness are left alone.
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+          step: 1
+    step2_target_pct:
+      name: Second dim — dim to
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+          step: 1
+    transition:
+      name: Transition time
+      description: How smoothly each dim is applied.
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: seconds
+          mode: box
+          step: 0.5
+
+mode: single
+max_exceeded: silent
+
+variables:
+  areas: !input areas
+  lights: !input lights
+  step1_threshold_pct: !input step1_threshold_pct
+  step2_threshold_pct: !input step2_threshold_pct
+  # Single source of truth for what this automation controls: the override
+  # when set, every light in the areas otherwise. Resolved at run time, so
+  # moving a light between areas is picked up without editing anything.
+  #
+  # The derived branch drops light *groups* (an entity whose own state
+  # carries an entity_id attribute listing members, e.g. a Hue room/zone
+  # light or a light group helper) so a group and its members aren't both
+  # targeted — turning a member down would also move the group's reported
+  # brightness, double-counting the change. An explicit override is trusted
+  # as-is; if you deliberately listed a group, that's your call.
+  light_entities: >-
+    {% if (lights | count) > 0 -%}
+    {{ lights }}
+    {%- else -%}
+    {%- set candidates = areas | map('area_entities') | sum(start=[])
+        | select('match', 'light\.') | list -%}
+    {%- set ns = namespace(out=[]) -%}
+    {%- for e in candidates -%}
+      {%- if state_attr(e, 'entity_id') is none -%}
+        {%- set ns.out = ns.out + [e] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ ns.out }}
+    {%- endif %}
+
+triggers:
+  - trigger: time
+    at: !input step1_time
+    id: step1
+  - trigger: time
+    at: !input step2_time
+    id: step2
+
+conditions: []
+
+actions:
+  - choose:
+      - alias: First dim
+        conditions:
+          - condition: trigger
+            id: step1
+        sequence:
+          - alias: Dim lights above the first threshold
+            action: light.turn_on
+            target:
+              entity_id: >-
+                {% set threshold = (step1_threshold_pct | float) * 255 / 100 %}
+                {{ expand(light_entities)
+                   | selectattr('state', 'eq', 'on')
+                   | selectattr('attributes.brightness', 'defined')
+                   | selectattr('attributes.brightness', 'gt', threshold)
+                   | map(attribute='entity_id') | list }}
+            data:
+              brightness_pct: !input step1_target_pct
+              transition: !input transition
+      - alias: Second dim
+        conditions:
+          - condition: trigger
+            id: step2
+        sequence:
+          - alias: Dim lights above the second threshold
+            action: light.turn_on
+            target:
+              entity_id: >-
+                {% set threshold = (step2_threshold_pct | float) * 255 / 100 %}
+                {{ expand(light_entities)
+                   | selectattr('state', 'eq', 'on')
+                   | selectattr('attributes.brightness', 'defined')
+                   | selectattr('attributes.brightness', 'gt', threshold)
+                   | map(attribute='entity_id') | list }}
+            data:
+              brightness_pct: !input step2_target_pct
+              transition: !input transition

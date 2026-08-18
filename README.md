@@ -5,6 +5,13 @@ own setup and shared in case they are useful to someone else.
 
 ## Blueprints
 
+| Blueprint | Description | Import |
+| --- | --- | --- |
+| [Hue Smart Button (ROM001) via ZHA](#hue-smart-button-rom001-via-zha) | Controller for the Philips Hue Smart Button, paired through ZHA: short press toggles a scene, double press applies a second scene, hold dims in steps. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_smart_button_rom001%2Fhue_smart_button_rom001.yaml) |
+| [Hue Tap Dial Switch (RDM002) via ZHA](#hue-tap-dial-switch-rdm002-via-zha) | Controller for the Philips Hue Tap Dial Switch, paired through ZHA: each button short/double press applies a scene, long press can switch off, the dial adjusts brightness. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_tap_dial_rdm002%2Fhue_tap_dial_rdm002.yaml) |
+| [Presence lighting with scene memory](#presence-lighting-with-scene-memory) | Presence lighting for one or more areas: motion restores the last scene or dims/switches off after being quiet, deferring to whatever scene is already in use instead of forcing a fixed one. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml) |
+| [Scheduled evening dimming](#scheduled-evening-dimming) | Two-step evening dim for a set of areas: lights above a threshold are dimmed to a target level at one time, then dimmed further at a second, later time. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_dimming%2Fscheduled_dimming.yaml) |
+
 ### Hue Smart Button (ROM001) via ZHA
 
 Controller for the Philips Hue Smart Button, paired through ZHA.
@@ -259,6 +266,38 @@ restores the snapshot.
 Switching off is skipped while a media player in the room is playing or
 paused, checked again at the moment of switching off rather than only when the
 room first went quiet.
+
+### Scheduled evening dimming
+
+Two-step evening dim for a set of areas — select every area to cover the
+whole house.
+
+| Time | Behaviour |
+| --- | --- |
+| First dim (default 22:30) | Lights above the first threshold (default 50%) are dimmed to the first target (default 50%) |
+| Second dim (default 23:00) | Lights above the second threshold (default 1%) are dimmed to the second target (default 1%) |
+
+Both steps only ever lower brightness. A light that is off stays off, and a
+light already at or below a step's threshold is left alone — so the second
+step doesn't re-trigger a transition on lights the first step already
+brought down.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_dimming%2Fscheduled_dimming.yaml)
+
+#### What it controls
+
+Takes one or more areas and dims every light in them; **Lights (override)**
+departs from that the same way it does in the presence lighting blueprint
+above — leave it empty for the normal case. The set of lights is resolved
+when the automation runs, not when you save it, and a light *group* in one
+of the areas is left out in favour of its members, for the same reason
+described under "What it controls" for presence lighting.
+
+#### Notes on behaviour
+
+Only two steps are offered, not an arbitrary schedule — pick times,
+thresholds, and targets that fit your evening. If you want more than two
+dims, add a second instance of this blueprint with its own times.
 
 ## Why these are self-contained
 

@@ -246,27 +246,6 @@ computed result from another field. Two ways to check before saving:
   which lights this blueprint would control — before the automation exists,
   and again any time later to confirm nothing drifted.
 
-#### "Still counts as dark below"
-
-Before restoring memory/preset, the automation checks whether the room
-currently looks dark — no point overriding lights someone already turned on
-by hand. Naively, "dark" would mean every controlled light is `off`, but a
-light left glowing very dim (say 1%, the tail end of "Scheduled evening
-dimming" below, or a nightlight) shouldn't count as "there's already proper
-light here" — that would silently block the room's own motion logic from
-ever restoring anything, with no visible symptom beyond "the lights just
-didn't come on."
-
-**Still counts as dark below** sets the brightness percentage under which a
-light is still treated as off for this check (default 10%). A light with no
-brightness support (a plain on/off lamp) always counts fully as on or off —
-there's nothing to be "barely lit" about. Set it to 0 to go back to the
-stricter original behaviour, where any brightness above zero counts as on.
-
-This matters most when combining areas into one room: a hallway and an
-adjoining stairwell, say, where a dim glow left in the hallway shouldn't
-stop motion in the stairwell from restoring its own memory.
-
 #### The three fallbacks
 
 When motion arrives in a dark room, the automation asks three questions in

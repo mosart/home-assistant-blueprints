@@ -264,6 +264,18 @@ Time of day is deliberately last. It is the answer when the room has no
 memory, not an override that reimposes a schedule on a room you just set by
 hand.
 
+#### Always use the Daytime preset
+
+Off by default, and only affects the daytime slot (between **Morning
+begins** and sunset) — night and evening always restore memory first,
+regardless of this setting.
+
+Turned on, it skips straight past both memory fallbacks during the day: the
+snapshot from last night and any last remote preset are ignored, and motion
+always applies the **Daytime preset** instead. Useful for a room where you
+want mornings to reliably reset to a fixed look rather than pick up
+whatever mood was left over from the previous evening.
+
 #### Notes on behaviour
 
 The dim is a warning, not a setting: the automation snapshots first, so the

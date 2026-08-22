@@ -7,7 +7,9 @@ blueprint:
 
     - **Motion while the room is dark**: restores the room's last known light
     state, falling back to the last preset a remote applied, then to the
-    preset for the current time of day.
+    preset for the current time of day. The "Always use the Daytime preset"
+    toggle skips straight to the Daytime preset during the daytime slot,
+    for rooms where the morning shouldn't just pick up last night's mood.
 
     - **Motion while dimmed**: puts back exactly what was on before the dim.
 
@@ -86,6 +88,20 @@ blueprint:
         entity:
           filter:
             - domain: input_text
+    ignore_memory_in_daytime:
+      name: Always use the Daytime preset
+      description: >-
+        Off by default: motion in a dark room during the daytime slot
+        restores the room's memory like any other time (last known state,
+        then last remote preset, then the Daytime preset as a last resort).
+
+        Turn this on to skip that memory during the daytime slot only —
+        motion then always applies the Daytime preset below, even if a
+        snapshot or a last preset is available. Night and evening are
+        unaffected either way; they keep restoring memory first.
+      default: false
+      selector:
+        boolean: {}
     preset_day:
       name: Daytime preset
       description: Applied when the room is dark and nothing is remembered.
@@ -457,6 +473,7 @@ variables:
   room: !input room
   lights: !input lights
   last_preset_helper: !input last_preset_helper
+  ignore_memory_in_daytime: !input ignore_memory_in_daytime
   # The area selector yields a list, but an instance saved before this input
   # became multi-select still holds a bare string — accept both.
   room_list: "{{ [room] if room is string else room }}"
@@ -564,6 +581,30 @@ actions:
                          | list | count == 0 }}
                 sequence:
                   - choose:
+                      # Checked first and ahead of the memory branches below,
+                      # so it pre-empts them rather than being just another
+                      # fallback — that's the point of the toggle. Repeats the
+                      # same not-night/not-evening test the time-based default
+                      # below uses, since "daytime" isn't its own condition.
+                      - alias: Daytime, and memory is turned off for it
+                        conditions:
+                          - condition: template
+                            value_template: "{{ ignore_memory_in_daytime }}"
+                          - condition: not
+                            conditions:
+                              - condition: time
+                                after: !input night_start
+                                before: !input day_start
+                          - condition: not
+                            conditions:
+                              - condition: sun
+                                after: sunset
+                        sequence:
+                          - action: scene_presets.apply_preset
+                            data:
+                              preset_id: !input preset_day
+                              targets:
+                                entity_id: "{{ light_entities }}"
                       # The snapshot entity is per-room and therefore dynamic,
                       # so a native state condition cannot address it.
                       - alias: Last known state

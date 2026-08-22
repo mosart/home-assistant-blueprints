@@ -258,17 +258,40 @@ order and stops at the first answer:
 2. **Did a remote record a preset?** Set the optional **Last preset helper**
    to the same `input_text` the Hue Tap Dial blueprint writes to.
 3. **Otherwise, what time is it?** Night between the two boundary times,
-   evening after sunset, daytime for everything else.
+   evening from its own boundary until night begins, daytime for everything
+   else.
 
 Time of day is deliberately last. It is the answer when the room has no
 memory, not an override that reimposes a schedule on a room you just set by
 hand.
 
+#### The three time slots
+
+Each preset has its own boundary input directly below it:
+
+| Preset | Boundary | Default |
+| --- | --- | --- |
+| Daytime | **Morning begins** | 07:00, fixed time |
+| Evening | **Evening begins** | Sun's sunset (toggle to switch to a fixed time) |
+| Night | **Night begins** | 23:00, fixed time |
+
+**Morning begins** and **Evening begins** each come with a toggle —
+**Use sunrise instead** / **Use sunset instead** — to follow the sun rather
+than a clock time that drifts against it across the seasons. Evening's
+toggle is *on* by default (matching this blueprint's original behaviour,
+sunset-only); morning's is *off* by default (a fixed time, as before). Night
+has no such toggle — it only ever uses **Night begins**, a fixed time.
+
+Turning either toggle on doesn't need a matching change anywhere else: the
+Daytime/Evening/Night decision above and the "Always use the Daytime
+preset" toggle below both read the same boundaries, so they stay in sync
+automatically.
+
 #### Always use the Daytime preset
 
 Off by default, and only affects the daytime slot (between **Morning
-begins** and sunset) — night and evening always restore memory first,
-regardless of this setting.
+begins** and the evening boundary) — night and evening always restore
+memory first, regardless of this setting.
 
 Turned on, it skips straight past both memory fallbacks during the day: the
 snapshot from last night and any last remote preset are ignored, and motion

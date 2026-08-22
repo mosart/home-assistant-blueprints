@@ -10,6 +10,8 @@ blueprint:
     preset for the current time of day. The "Always use the Daytime preset"
     toggle skips straight to the Daytime preset during the daytime slot,
     for rooms where the morning shouldn't just pick up last night's mood.
+    Each preset's time boundary sits next to it below — morning and evening
+    can each use a fixed clock time or the sun's actual sunrise/sunset.
 
     - **Motion while dimmed**: puts back exactly what was on before the dim.
 
@@ -403,24 +405,55 @@ blueprint:
             - label: "Sports live — Stadium"
               value: "f587060a-c4a1-4885-87ff-54c247fb29e6"
             # END generated scene_presets options
+    day_start:
+      name: Morning begins
+      description: >-
+        End of the night slot, and — unless overridden by the toggle below —
+        the fixed time the daytime slot starts.
+      default: "07:00:00"
+      selector:
+        time:
+    day_start_use_sunrise:
+      name: Use sunrise instead
+      description: >-
+        Off by default (the fixed time above applies). Turn on to use the
+        sun's actual sunrise each day instead — the room then always wakes
+        up with first light rather than a clock time that drifts against it
+        across the seasons.
+      default: false
+      selector:
+        boolean: {}
     preset_evening:
       name: Evening preset
-      description: Applied after sunset, until the night slot begins.
+      description: Applied after the evening slot starts, until the night slot begins.
       selector: *preset_selector
+    evening_start:
+      name: Evening begins
+      description: >-
+        Unless overridden by the toggle below, the fixed time the evening
+        slot starts.
+      default: "18:00:00"
+      selector:
+        time:
+    evening_start_use_sunset:
+      name: Use sunset instead
+      description: >-
+        On by default, matching this blueprint's original behaviour: the
+        evening slot starts at the sun's actual sunset each day rather than
+        the fixed time above. Turn off to use a fixed clock time instead.
+      default: true
+      selector:
+        boolean: {}
     preset_night:
       name: Night preset
-      description: Applied between the night and morning boundaries below.
+      description: >-
+        Applied between the night boundary below and morning begins (set
+        next to the Daytime preset above).
       selector: *preset_selector
     night_start:
       name: Night begins
       description: Start of the night slot.
       default: "23:00:00"
-      selector:
-        time:
-    day_start:
-      name: Morning begins
-      description: End of the night slot.
-      default: "07:00:00"
       selector:
         time:
     no_motion_dim_after:
@@ -474,6 +507,8 @@ variables:
   lights: !input lights
   last_preset_helper: !input last_preset_helper
   ignore_memory_in_daytime: !input ignore_memory_in_daytime
+  day_start_use_sunrise: !input day_start_use_sunrise
+  evening_start_use_sunset: !input evening_start_use_sunset
   # The area selector yields a list, but an instance saved before this input
   # became multi-select still holds a bare string — accept both.
   room_list: "{{ [room] if room is string else room }}"
@@ -592,13 +627,32 @@ actions:
                             value_template: "{{ ignore_memory_in_daytime }}"
                           - condition: not
                             conditions:
-                              - condition: time
-                                after: !input night_start
-                                before: !input day_start
+                              # Anchored here (first use) and reused as-is by
+                              # the "Night" branch below, so the two toggles
+                              # for sunrise/sunset can't drift out of sync
+                              # between this gate and the actual time slots.
+                              - &is_night_now
+                                condition: or
+                                conditions:
+                                  - condition: time
+                                    after: !input night_start
+                                  - condition: time
+                                    before: !input day_start
+                                    enabled: "{{ not day_start_use_sunrise }}"
+                                  - condition: sun
+                                    before: sunrise
+                                    enabled: "{{ day_start_use_sunrise }}"
                           - condition: not
                             conditions:
-                              - condition: sun
-                                after: sunset
+                              - &is_evening_now
+                                condition: or
+                                conditions:
+                                  - condition: time
+                                    after: !input evening_start
+                                    enabled: "{{ not evening_start_use_sunset }}"
+                                  - condition: sun
+                                    after: sunset
+                                    enabled: "{{ evening_start_use_sunset }}"
                         sequence:
                           - action: scene_presets.apply_preset
                             data:
@@ -636,9 +690,7 @@ actions:
                       - choose:
                           - alias: Night
                             conditions:
-                              - condition: time
-                                after: !input night_start
-                                before: !input day_start
+                              - *is_night_now
                             sequence:
                               - action: scene_presets.apply_preset
                                 data:
@@ -647,8 +699,7 @@ actions:
                                     entity_id: "{{ light_entities }}"
                           - alias: Evening
                             conditions:
-                              - condition: sun
-                                after: sunset
+                              - *is_evening_now
                             sequence:
                               - action: scene_presets.apply_preset
                                 data:

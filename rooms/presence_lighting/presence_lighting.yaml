@@ -28,13 +28,6 @@ blueprint:
     unreliable) or when different rooms use different sensor types.
 
 
-    "Is the room dark?" ignores any light dimmer than the threshold below —
-    combining areas (e.g. a hallway plus a stairwell) means a barely-lit
-    light left over from something like a scheduled evening dim in one of
-    them would otherwise count as "the room already has light", and motion
-    in the other area would then never restore its memory/preset.
-
-
     Requires the `scene_presets` custom integration
     (Hypfer/hass-scene_presets) and one `input_boolean` per instance — see
     the README.
@@ -76,25 +69,6 @@ blueprint:
           multiple: true
           filter:
             - domain: light
-    dark_threshold_pct:
-      name: "Still counts as dark below"
-      description: >-
-        Brightness percentage below which a light is treated as effectively
-        off when this blueprint decides "is the room dark?". Raise it if a
-        dim light elsewhere in a combined room (e.g. a hallway lamp left at
-        a low glow by a scheduled evening dim, or a nightlight) keeps this
-        automation from ever restoring memory/preset for the rest of the
-        room. Set to 0 to treat any brightness above zero as "on" (the
-        original, stricter behaviour). Lights that can't be dimmed at all
-        always count as fully "on" or "off", regardless of this setting.
-      default: 10
-      selector:
-        number:
-          min: 0
-          max: 100
-          unit_of_measurement: "%"
-          mode: slider
-          step: 1
     dim_flag:
       name: Dimming flag helper
       description: >-
@@ -531,7 +505,6 @@ max_exceeded: silent
 variables:
   room: !input room
   lights: !input lights
-  dark_threshold_pct: !input dark_threshold_pct
   last_preset_helper: !input last_preset_helper
   ignore_memory_in_daytime: !input ignore_memory_in_daytime
   day_start_use_sunrise: !input day_start_use_sunrise
@@ -568,26 +541,6 @@ variables:
   # other's memory.
   snapshot_scene_id: "presence_snapshot_{{ room_list | join('_') }}"
   snapshot_entity: "scene.presence_snapshot_{{ room_list | join('_') }}"
-  # How many of the controlled lights count as genuinely "on", used by both
-  # the "is the room dark?" check below and the no-motion dim-warning check.
-  # A light without a brightness attribute (can't be dimmed) always counts
-  # if its state is "on". A dimmable light only counts above the threshold —
-  # this is what stops a single barely-lit light (e.g. the tail end of a
-  # scheduled evening dim in a combined room) from making the whole room
-  # look "already lit" and blocking motion elsewhere in it from restoring
-  # memory/preset.
-  lights_on_count: >-
-    {%- set threshold_raw = (dark_threshold_pct | float) / 100 * 255 -%}
-    {%- set ns = namespace(count=0) -%}
-    {%- for e in expand(light_entities) -%}
-      {%- if e.state == 'on' -%}
-        {%- set brightness = state_attr(e.entity_id, 'brightness') -%}
-        {%- if brightness is none or brightness > threshold_raw -%}
-          {%- set ns.count = ns.count + 1 -%}
-        {%- endif -%}
-      {%- endif -%}
-    {%- endfor -%}
-    {{ ns.count }}
 
 triggers:
   # Motion and occupancy are two independent purpose-specific families, so a
@@ -657,7 +610,10 @@ actions:
               - alias: Room is dark, so bring back its memory
                 conditions:
                   - condition: template
-                    value_template: "{{ lights_on_count == 0 }}"
+                    value_template: >-
+                      {{ expand(light_entities)
+                         | selectattr('state', 'eq', 'on')
+                         | list | count == 0 }}
                 sequence:
                   - choose:
                       # Checked first and ahead of the memory branches below,
@@ -763,7 +719,10 @@ actions:
         sequence:
           - alias: Nothing to dim if the room is already dark
             condition: template
-            value_template: "{{ lights_on_count > 0 }}"
+            value_template: >-
+              {{ expand(light_entities)
+                 | selectattr('state', 'eq', 'on')
+                 | list | count > 0 }}
           - condition: not
             conditions:
               - condition: media_player.is_playing

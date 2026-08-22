@@ -17,8 +17,11 @@ blueprint:
     Media playing or paused in the room postpones dimming and switching off.
 
 
-    Pick one or more areas and it takes both the motion sensors and the
-    lights from them; an optional override lets you depart from that.
+    Pick one or more areas and it takes both the motion/occupancy sensors and
+    the lights from them; an optional override lets you depart from that.
+    Reacts to either class of sensor a room has — useful when a device's
+    motion and occupancy entities behave differently (e.g. one is stuck or
+    unreliable) or when different rooms use different sensor types.
 
 
     Requires the `scene_presets` custom integration
@@ -32,10 +35,11 @@ blueprint:
     room:
       name: Rooms
       description: >-
-        The areas this automation covers. Their motion sensors drive it, their
-        lights are what it controls, and media players in them postpone
-        dimming and switching off. Pick more than one to treat adjoining
-        spaces as a single room.
+        The areas this automation covers. Their motion and occupancy sensors
+        drive it (either fires the same behaviour — see the blueprint
+        description), their lights are what it controls, and media players in
+        them postpone dimming and switching off. Pick more than one to treat
+        adjoining spaces as a single room.
 
 
         This field can't preview which sensors and lights that resolves to —
@@ -487,6 +491,14 @@ variables:
   snapshot_entity: "scene.presence_snapshot_{{ room_list | join('_') }}"
 
 triggers:
+  # Motion and occupancy are two independent purpose-specific families, so a
+  # room needs both trigger pairs to react to whichever class its sensor(s)
+  # expose. Some devices report only one of the two (e.g. a plain PIR sensor
+  # has no occupancy entity); others expose both from the same device, where
+  # they can behave differently (a stuck/quirk-less motion cluster that never
+  # clears vs. a reliably-timed occupancy cluster) — sharing the same trigger
+  # id below means either firing drives the same branch, so the room still
+  # works correctly even if one of the two classes is unreliable.
   - trigger: motion.detected
     target:
       area_id: !input room
@@ -494,7 +506,21 @@ triggers:
       for: "00:00:00"
       behavior: each
     id: motion
+  - trigger: occupancy.detected
+    target:
+      area_id: !input room
+    options:
+      for: "00:00:00"
+      behavior: each
+    id: motion
   - trigger: motion.cleared
+    target:
+      area_id: !input room
+    options:
+      for: !input no_motion_dim_after
+      behavior: each
+    id: no_motion
+  - trigger: occupancy.cleared
     target:
       area_id: !input room
     options:

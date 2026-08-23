@@ -509,6 +509,7 @@ variables:
   ignore_memory_in_daytime: !input ignore_memory_in_daytime
   day_start_use_sunrise: !input day_start_use_sunrise
   evening_start_use_sunset: !input evening_start_use_sunset
+  dim_brightness_pct: !input dim_brightness_pct
   # The area selector yields a list, but an instance saved before this input
   # became multi-select still holds a bare string — accept both.
   room_list: "{{ [room] if room is string else room }}"
@@ -745,10 +746,21 @@ actions:
           - action: input_boolean.turn_on
             target:
               entity_id: !input dim_flag
+          # Only lights currently brighter than the warning level are touched,
+          # so a light already resting below it (e.g. a dim Night preset) is
+          # left alone instead of being pushed brighter right before it goes
+          # out — the warning should only ever lower brightness, never raise
+          # it.
           - alias: Dim as a warning
             action: light.turn_on
             target:
-              entity_id: "{{ light_entities }}"
+              entity_id: >-
+                {% set threshold = (dim_brightness_pct | float) * 255 / 100 %}
+                {{ expand(light_entities)
+                   | selectattr('state', 'eq', 'on')
+                   | selectattr('attributes.brightness', 'defined')
+                   | selectattr('attributes.brightness', 'gt', threshold)
+                   | map(attribute='entity_id') | list }}
             data:
               brightness_pct: !input dim_brightness_pct
               transition: !input transition

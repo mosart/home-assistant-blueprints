@@ -302,11 +302,12 @@ whatever mood was left over from the previous evening.
 #### Notes on behaviour
 
 The dim is a warning, not a setting: the automation snapshots first, so the
-dim never destroys the brightness you chose. It also only ever lowers
-brightness — a light already at or below the warning level (e.g. resting on a
-dim Night preset) is left alone rather than being pushed brighter right before
-it goes out. Returning motion during the dim window restarts the automation,
-which cancels the pending switch-off and restores the snapshot.
+dim never destroys the brightness you chose. **Dim by** is a relative step
+(`brightness_step_pct`) off each light's own current brightness, not a fixed
+target — so a light already resting low (e.g. on a dim Night preset) only
+drops a little further instead of being pushed up to a shared level right
+before it goes out. Returning motion during the dim window restarts the
+automation, which cancels the pending switch-off and restores the snapshot.
 
 Switching off is skipped while a media player in the room is playing or
 paused, checked again at the moment of switching off rather than only when the

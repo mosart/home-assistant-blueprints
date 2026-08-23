@@ -1,0 +1,82 @@
+blueprint:
+  name: "[mosart] Sonoff Motion Sensor (SNZB-03P) camera-snapshot notification"
+  description: >-
+    Notifies one or more phones when this motion sensor detects activity,
+    with a live snapshot from a nearby camera attached — built for the
+    mailbox, but works anywhere a Sonoff SNZB-03P sits near a camera.
+
+
+    Triggers on the sensor's **occupancy** entity, not its **motion** entity:
+    on this device, the raw motion `binary_sensor` latches "on" after its
+    first detection and does not reliably clear again, so a trigger on it
+    would only ever fire once. The occupancy entity clears properly (using
+    the sensor's own presence time-out, adjustable on the device itself) and
+    retriggers correctly on every subsequent visit.
+  source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/sonoff_motion_snzb03p/sonoff_motion_snzb03p.yaml
+  domain: automation
+  homeassistant:
+    min_version: 2026.7.0
+  input:
+    motion_sensor:
+      name: Motion sensor
+      description: >-
+        The Sonoff SNZB-03P device to watch. Its occupancy entity drives the
+        trigger — see the blueprint description for why.
+      selector:
+        device:
+          filter:
+            - integration: zha
+              model: SNZB-03P
+    camera:
+      name: Camera
+      description: A snapshot from this camera is attached to the notification.
+      selector:
+        entity:
+          filter:
+            - domain: camera
+    notify_targets:
+      name: Phones to notify
+      description: >-
+        One or more `notify` entities to send the message to — the modern
+        per-device notify entity the Mobile App integration creates, not the
+        legacy `notify.mobile_app_...` service.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: notify
+    title:
+      name: Notification title
+      default: "📬 Post!"
+      selector:
+        text:
+    message:
+      name: Notification message
+      default: "Jippie, je hebt post! Kijk in de brievenbus wat er in ligt."
+      selector:
+        text:
+
+mode: single
+max_exceeded: silent
+
+variables:
+  camera: !input camera
+
+triggers:
+  - trigger: occupancy.detected
+    target:
+      device_id: !input motion_sensor
+    options:
+      behavior: each
+
+conditions: []
+
+actions:
+  - action: notify.send_message
+    target:
+      entity_id: !input notify_targets
+    data:
+      title: !input title
+      message: !input message
+      data:
+        image: "/api/camera_proxy/{{ camera }}"

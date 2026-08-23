@@ -466,8 +466,12 @@ blueprint:
       selector:
         duration:
     dim_brightness_pct:
-      name: Dim to
-      description: Brightness the warning dim drops to.
+      name: Dim by
+      description: >-
+        How much dimmer the warning makes the lights, as a percentage of
+        their current brightness rather than a fixed target — a light
+        already very dim only drops a little further, so the warning can
+        never end up brighter than it was.
       default: 50
       selector:
         number:
@@ -746,23 +750,21 @@ actions:
           - action: input_boolean.turn_on
             target:
               entity_id: !input dim_flag
-          # Only lights currently brighter than the warning level are touched,
-          # so a light already resting below it (e.g. a dim Night preset) is
-          # left alone instead of being pushed brighter right before it goes
-          # out — the warning should only ever lower brightness, never raise
-          # it.
+          # brightness_step_pct is relative to each light's own current
+          # brightness, not an absolute target — so a light already dim only
+          # drops a little further instead of being pushed up to a fixed
+          # level. That makes "never brighten" automatic, with no threshold
+          # check needed. Off lights are excluded; a step has nothing to
+          # step from and should not switch them on.
           - alias: Dim as a warning
             action: light.turn_on
             target:
               entity_id: >-
-                {% set threshold = (dim_brightness_pct | float) * 255 / 100 %}
                 {{ expand(light_entities)
                    | selectattr('state', 'eq', 'on')
-                   | selectattr('attributes.brightness', 'defined')
-                   | selectattr('attributes.brightness', 'gt', threshold)
                    | map(attribute='entity_id') | list }}
             data:
-              brightness_pct: !input dim_brightness_pct
+              brightness_step_pct: "{{ -1 * (dim_brightness_pct | float) }}"
               transition: !input transition
           # Returning motion restarts the automation and cancels this wait.
           - delay: !input no_motion_off_after

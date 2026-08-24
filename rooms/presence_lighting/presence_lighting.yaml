@@ -7,11 +7,13 @@ blueprint:
 
     - **Motion while the room is dark**: restores the room's last known light
     state, falling back to the last preset a remote applied, then to the
-    preset for the current time of day. The "Always use the Daytime preset"
-    toggle skips straight to the Daytime preset during the daytime slot,
-    for rooms where the morning shouldn't just pick up last night's mood.
-    Each preset's time boundary sits next to it below — morning and evening
-    can each use a fixed clock time or the sun's actual sunrise/sunset.
+    preset for the current time of day. During the daytime slot, the "Always
+    use the Daytime preset during daytime" toggle (on by default) skips that
+    memory and applies the Daytime preset outright, so the morning doesn't
+    just pick up last night's mood; turn it off to restore memory during the
+    day too. Each preset's time boundary sits next to it below — morning and
+    evening can each use a fixed clock time or the sun's actual
+    sunrise/sunset.
 
     - **Motion while dimmed**: puts back exactly what was on before the dim.
 
@@ -91,17 +93,17 @@ blueprint:
           filter:
             - domain: input_text
     ignore_memory_in_daytime:
-      name: Always use the Daytime preset
+      name: Always use the Daytime preset during daytime
       description: >-
-        Off by default: motion in a dark room during the daytime slot
-        restores the room's memory like any other time (last known state,
-        then last remote preset, then the Daytime preset as a last resort).
+        On by default: motion in a dark room during the daytime slot always
+        applies the Daytime preset below, even if a snapshot or a last
+        preset is available. Night and evening are unaffected either way;
+        they always restore memory first.
 
-        Turn this on to skip that memory during the daytime slot only —
-        motion then always applies the Daytime preset below, even if a
-        snapshot or a last preset is available. Night and evening are
-        unaffected either way; they keep restoring memory first.
-      default: false
+        Turn this off to restore the room's memory during the daytime slot
+        too, the same as night and evening (last known state, then last
+        remote preset, then the Daytime preset as a last resort).
+      default: true
       selector:
         boolean: {}
     preset_day:

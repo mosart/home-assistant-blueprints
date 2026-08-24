@@ -311,20 +311,23 @@ has no such toggle — it only ever uses **Night begins**, a fixed time.
 
 Turning either toggle on doesn't need a matching change anywhere else: the
 Daytime/Evening/Night decision above and the "Always use the Daytime
-preset" toggle below both read the same boundaries, so they stay in sync
-automatically.
+preset during daytime" toggle below both read the same boundaries, so they
+stay in sync automatically.
 
-#### Always use the Daytime preset
+#### Always use the Daytime preset during daytime
 
-Off by default, and only affects the daytime slot (between **Morning
+On by default, and only affects the daytime slot (between **Morning
 begins** and the evening boundary) — night and evening always restore
 memory first, regardless of this setting.
 
-Turned on, it skips straight past both memory fallbacks during the day: the
+While on, it skips straight past both memory fallbacks during the day: the
 snapshot from last night and any last remote preset are ignored, and motion
-always applies the **Daytime preset** instead. Useful for a room where you
-want mornings to reliably reset to a fixed look rather than pick up
-whatever mood was left over from the previous evening.
+always applies the **Daytime preset** instead — so mornings reliably reset to
+a fixed look rather than pick up whatever mood was left over from the
+previous evening.
+
+Turn it off to restore the room's memory during the day too, the same as
+night and evening.
 
 #### Notes on behaviour
 

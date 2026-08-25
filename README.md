@@ -178,9 +178,10 @@ SNZB-03P sits near a camera.
 
 - The sensor paired via **ZHA**. Zigbee2MQTT and deCONZ are not supported.
 - A **camera** entity with a snapshot Home Assistant can fetch locally.
-- One **`notify`** entity per phone — the modern per-device entity the
-  Mobile App integration creates, not the legacy `notify.mobile_app_...`
-  service.
+- One legacy **`notify.mobile_app_...`** service per phone (Developer Tools
+  → Actions, search "notify"). The modern per-device notify entity
+  (`notify.send_message`) doesn't support the camera-snapshot attachment, so
+  this blueprint calls the legacy service directly instead.
 
 #### Notes on behaviour
 

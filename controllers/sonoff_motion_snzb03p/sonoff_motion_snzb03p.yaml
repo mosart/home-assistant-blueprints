@@ -34,17 +34,18 @@ blueprint:
         entity:
           filter:
             - domain: camera
-    notify_targets:
+    notify_services:
       name: Phones to notify
       description: >-
-        One or more `notify` entities to send the message to — the modern
-        per-device notify entity the Mobile App integration creates, not the
-        legacy `notify.mobile_app_...` service.
+        One or more legacy `notify.mobile_app_...` services, given as just
+        the part after `notify.` (e.g. `mobile_app_fp5`) — find yours under
+        Developer Tools → Actions by searching "notify". The modern
+        per-device notify entity (`notify.send_message`) doesn't support the
+        camera-snapshot attachment below, so this blueprint uses the legacy
+        service instead.
       selector:
-        entity:
+        text:
           multiple: true
-          filter:
-            - domain: notify
     title:
       name: Notification title
       default: "📬 Post!"
@@ -72,11 +73,16 @@ triggers:
 conditions: []
 
 actions:
-  - action: notify.send_message
-    target:
-      entity_id: !input notify_targets
-    data:
-      title: !input title
-      message: !input message
-      data:
-        image: "/api/camera_proxy/{{ camera }}"
+  # Fanned out per phone rather than one call with a target list: the
+  # camera-snapshot attachment needs the legacy per-device notify service
+  # (notify.mobile_app_<slug>), and each phone has its own service name —
+  # there is no single action that accepts a list of them.
+  - repeat:
+      for_each: !input notify_services
+      sequence:
+        - action: "notify.{{ repeat.item }}"
+          data:
+            title: !input title
+            message: !input message
+            data:
+              image: "/api/camera_proxy/{{ camera }}"

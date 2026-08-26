@@ -354,6 +354,13 @@ previous state. The trade-off is the room's memory: a brightness or scene
 you set by hand (from a dashboard, a voice assistant, or a remote) no longer
 survives the next motion event either.
 
+This mode also always sets the light to full brightness before applying the
+preset's colour. `scene_presets.apply_preset` only ever changes colour — on
+a light that's already on it leaves brightness exactly as it found it. Without
+forcing brightness here, a light this same automation dimmed low moments
+earlier (or one left low by anything else) would get the right colour but
+stay just as dim, which looks identical to "nothing happened."
+
 #### Notes on behaviour
 
 The dim is a warning, not a setting: the automation snapshots first, so the

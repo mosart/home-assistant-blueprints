@@ -29,7 +29,11 @@ blueprint:
     blueprint never set (e.g. a smart bulb wired behind a physical wall
     switch, which powers back up at its own default brightness whenever the
     switch cuts and restores power) and a remembered state would be wrong
-    more often than it would be right.
+    more often than it would be right. This mode always brings the light to
+    full brightness before applying the preset's colour — `apply_preset`
+    alone only ever changes colour, so on a light that's already on (say,
+    dimmed low by this same blueprint moments earlier) it would otherwise
+    leave the existing, possibly barely-visible brightness untouched.
 
 
     Media playing or paused in the room postpones dimming and switching off.
@@ -134,7 +138,9 @@ blueprint:
         power-cycled outside Home Assistant's control (a physical wall
         switch on a smart bulb's power is the common case: the bulb comes
         back at its own default brightness, which this blueprint would
-        otherwise mistake for an intentional state and leave alone).
+        otherwise mistake for an intentional state and leave alone). Always
+        brings the light to full brightness first, since applying a preset
+        alone only ever changes colour, not brightness.
       default: false
       selector:
         boolean: {}
@@ -657,9 +663,17 @@ actions:
                                 before: sunrise
                                 enabled: "{{ day_start_use_sunrise }}"
                         sequence:
+                          # brightness: 255 is explicit here (and in the
+                          # Evening/Day branches below), not left to
+                          # apply_preset's own default — apply_preset only
+                          # ever sets color; it leaves brightness untouched
+                          # on a light that's already on, which is the
+                          # entire problem this toggle exists to route
+                          # around (see the blueprint description above).
                           - action: scene_presets.apply_preset
                             data:
                               preset_id: !input preset_night
+                              brightness: 255
                               targets:
                                 entity_id: "{{ light_entities }}"
                       - alias: Evening
@@ -677,12 +691,14 @@ actions:
                           - action: scene_presets.apply_preset
                             data:
                               preset_id: !input preset_evening
+                              brightness: 255
                               targets:
                                 entity_id: "{{ light_entities }}"
                     default:
                       - action: scene_presets.apply_preset
                         data:
                           preset_id: !input preset_day
+                          brightness: 255
                           targets:
                             entity_id: "{{ light_entities }}"
               - alias: We dimmed it, so put back exactly what was there

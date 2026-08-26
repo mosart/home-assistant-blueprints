@@ -330,6 +330,30 @@ previous evening.
 Turn it off to restore the room's memory during the day too, the same as
 night and evening.
 
+#### Always apply time-of-day preset on motion
+
+Off by default. The three fallbacks above, and the "already lit" check
+that normally makes motion in a lit room do nothing, both exist to defer to
+whatever's already on the lights — deliberately, since a light someone just
+set by hand shouldn't get overridden by a passing motion event.
+
+That assumption breaks for a light whose state changed for a reason outside
+Home Assistant's control — the case that prompted this toggle: a smart bulb
+wired behind a physical wall switch, where cutting and restoring power to
+the switch makes the bulb come back at its own configured power-on
+brightness (typically full, cool white), not anything this blueprint chose.
+Home Assistant then sees an "on" light and, working as designed, leaves it
+alone — which looks like the automation doing nothing.
+
+Turning this on removes the "already lit" check and all three memory
+fallbacks from the motion branch entirely. Every motion event applies the
+Daytime/Evening/Night preset for whichever slot it currently is,
+unconditionally — so a room like that always ends up in a known, correct
+state a moment after someone walks in, regardless of what put it in its
+previous state. The trade-off is the room's memory: a brightness or scene
+you set by hand (from a dashboard, a voice assistant, or a remote) no longer
+survives the next motion event either.
+
 #### Notes on behaviour
 
 The dim is a warning, not a setting: the automation snapshots first, so the

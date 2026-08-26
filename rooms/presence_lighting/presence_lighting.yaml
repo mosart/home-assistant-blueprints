@@ -20,6 +20,18 @@ blueprint:
     - **No motion**: dims as a warning, then switches off.
 
 
+    The "Always apply time-of-day preset on motion" toggle (off by default)
+    replaces all of the above memory behaviour with something simpler and
+    more predictable: every motion event applies the Daytime/Evening/Night
+    preset for whatever slot it currently is, full stop — regardless of
+    whether the light is already on, what it's currently showing, or why.
+    Turn this on for a room where the light can end up in a state this
+    blueprint never set (e.g. a smart bulb wired behind a physical wall
+    switch, which powers back up at its own default brightness whenever the
+    switch cuts and restores power) and a remembered state would be wrong
+    more often than it would be right.
+
+
     Media playing or paused in the room postpones dimming and switching off.
 
 
@@ -104,6 +116,26 @@ blueprint:
         too, the same as night and evening (last known state, then last
         remote preset, then the Daytime preset as a last resort).
       default: true
+      selector:
+        boolean: {}
+    force_preset_on_motion:
+      name: Always apply time-of-day preset on motion
+      description: >-
+        Off by default: motion follows the memory behaviour described above
+        (put back the snapshot from before a dim, then the room's last known
+        state, then the last remote preset, then the time-of-day preset as a
+        last resort) — and does nothing at all if the light already appears
+        to be on.
+
+        Turn this on to skip all of that. Every motion event then applies
+        the Daytime/Evening/Night preset below for whatever slot it
+        currently is, unconditionally — including when the light is already
+        on. Use this for a room where the light can be switched or
+        power-cycled outside Home Assistant's control (a physical wall
+        switch on a smart bulb's power is the common case: the bulb comes
+        back at its own default brightness, which this blueprint would
+        otherwise mistake for an intentional state and leave alone).
+      default: false
       selector:
         boolean: {}
     preset_day:
@@ -513,6 +545,7 @@ variables:
   lights: !input lights
   last_preset_helper: !input last_preset_helper
   ignore_memory_in_daytime: !input ignore_memory_in_daytime
+  force_preset_on_motion: !input force_preset_on_motion
   day_start_use_sunrise: !input day_start_use_sunrise
   evening_start_use_sunset: !input evening_start_use_sunset
   dim_brightness_pct: !input dim_brightness_pct
@@ -597,6 +630,61 @@ actions:
             id: motion
         sequence:
           - choose:
+              # Checked first, ahead of every memory branch below, so it
+              # pre-empts all of them rather than being just another
+              # fallback — that's the point of the toggle. Anchors the
+              # night/evening time checks on their first use in the
+              # document; the "Daytime, and memory is turned off for it" and
+              # "Room is dark" branches further down reuse them as plain
+              # aliases.
+              - alias: Always apply the time-of-day preset, ignoring current state
+                conditions:
+                  - condition: template
+                    value_template: "{{ force_preset_on_motion }}"
+                sequence:
+                  - choose:
+                      - alias: Night
+                        conditions:
+                          - &is_night_now
+                            condition: or
+                            conditions:
+                              - condition: time
+                                after: !input night_start
+                              - condition: time
+                                before: !input day_start
+                                enabled: "{{ not day_start_use_sunrise }}"
+                              - condition: sun
+                                before: sunrise
+                                enabled: "{{ day_start_use_sunrise }}"
+                        sequence:
+                          - action: scene_presets.apply_preset
+                            data:
+                              preset_id: !input preset_night
+                              targets:
+                                entity_id: "{{ light_entities }}"
+                      - alias: Evening
+                        conditions:
+                          - &is_evening_now
+                            condition: or
+                            conditions:
+                              - condition: time
+                                after: !input evening_start
+                                enabled: "{{ not evening_start_use_sunset }}"
+                              - condition: sun
+                                after: sunset
+                                enabled: "{{ evening_start_use_sunset }}"
+                        sequence:
+                          - action: scene_presets.apply_preset
+                            data:
+                              preset_id: !input preset_evening
+                              targets:
+                                entity_id: "{{ light_entities }}"
+                    default:
+                      - action: scene_presets.apply_preset
+                        data:
+                          preset_id: !input preset_day
+                          targets:
+                            entity_id: "{{ light_entities }}"
               - alias: We dimmed it, so put back exactly what was there
                 conditions:
                   - condition: state
@@ -634,32 +722,17 @@ actions:
                             value_template: "{{ ignore_memory_in_daytime }}"
                           - condition: not
                             conditions:
-                              # Anchored here (first use) and reused as-is by
-                              # the "Night" branch below, so the two toggles
-                              # for sunrise/sunset can't drift out of sync
-                              # between this gate and the actual time slots.
-                              - &is_night_now
-                                condition: or
-                                conditions:
-                                  - condition: time
-                                    after: !input night_start
-                                  - condition: time
-                                    before: !input day_start
-                                    enabled: "{{ not day_start_use_sunrise }}"
-                                  - condition: sun
-                                    before: sunrise
-                                    enabled: "{{ day_start_use_sunrise }}"
+                              # Anchored above, in the "Always apply the
+                              # time-of-day preset" branch (its first use in
+                              # the document); reused here and by the
+                              # "Night"/"Evening" branches below as plain
+                              # aliases, so the sunrise/sunset toggles can't
+                              # drift out of sync between this gate and the
+                              # actual time slots.
+                              - *is_night_now
                           - condition: not
                             conditions:
-                              - &is_evening_now
-                                condition: or
-                                conditions:
-                                  - condition: time
-                                    after: !input evening_start
-                                    enabled: "{{ not evening_start_use_sunset }}"
-                                  - condition: sun
-                                    after: sunset
-                                    enabled: "{{ evening_start_use_sunset }}"
+                              - *is_evening_now
                         sequence:
                           - action: scene_presets.apply_preset
                             data:

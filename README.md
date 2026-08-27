@@ -310,6 +310,14 @@ toggle is *on* by default (matching this blueprint's original behaviour,
 sunset-only); morning's is *off* by default (a fixed time, as before). Night
 has no such toggle — it only ever uses **Night begins**, a fixed time.
 
+**Night preset brightness** (default 2%) always overrides whatever
+brightness the Night preset itself carries — the only one of the three
+presets with a dedicated brightness input. A preset picked for its colour
+doesn't necessarily read as dim once applied (Hue-style presets are mostly
+about colour, not brightness), so this pins the night look down
+independently of whichever preset is selected above. Daytime and Evening
+have no such override; they use whatever brightness their preset applies.
+
 Turning either toggle on doesn't need a matching change anywhere else: the
 Daytime/Evening/Night decision above and the "Always use the Daytime
 preset during daytime" toggle below both read the same boundaries, so they

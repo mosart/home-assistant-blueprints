@@ -484,6 +484,22 @@ blueprint:
         Applied between the night boundary below and morning begins (set
         next to the Daytime preset above).
       selector: *preset_selector
+    night_brightness_pct:
+      name: Night preset brightness
+      description: >-
+        Brightness the Night preset is applied at, overriding whatever
+        brightness the preset itself happens to carry. A preset picked for
+        its colour (e.g. a warm "Nightlight" look) doesn't necessarily come
+        with a brightness that actually reads as dim once applied — this
+        pins it down independently of that.
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+          step: 1
     night_start:
       name: Night begins
       description: Start of the night slot.
@@ -546,6 +562,8 @@ variables:
   last_preset_helper: !input last_preset_helper
   ignore_memory_in_daytime: !input ignore_memory_in_daytime
   force_preset_on_motion: !input force_preset_on_motion
+  night_brightness_pct: !input night_brightness_pct
+  night_brightness: "{{ (night_brightness_pct | float) * 255 / 100 }}"
   day_start_use_sunrise: !input day_start_use_sunrise
   evening_start_use_sunset: !input evening_start_use_sunset
   dim_brightness_pct: !input dim_brightness_pct
@@ -660,6 +678,7 @@ actions:
                           - action: scene_presets.apply_preset
                             data:
                               preset_id: !input preset_night
+                              brightness: "{{ night_brightness }}"
                               targets:
                                 entity_id: "{{ light_entities }}"
                       - alias: Evening
@@ -775,6 +794,7 @@ actions:
                               - action: scene_presets.apply_preset
                                 data:
                                   preset_id: !input preset_night
+                                  brightness: "{{ night_brightness }}"
                                   targets:
                                     entity_id: "{{ light_entities }}"
                           - alias: Evening

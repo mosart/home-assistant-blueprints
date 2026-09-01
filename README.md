@@ -12,6 +12,7 @@ own setup and shared in case they are useful to someone else.
 | [Presence lighting with scene memory](#presence-lighting-with-scene-memory) | Presence lighting for one or more areas: motion or occupancy restores the last scene, or dims/switches off after being quiet, deferring to whatever scene is already in use instead of forcing a fixed one. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml) |
 | [Sonoff Motion Sensor (SNZB-03P) camera-snapshot notification](#sonoff-motion-sensor-snzb-03p-camera-snapshot-notification) | Notifies one or more phones when the sensor detects activity, with a live camera snapshot attached. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fsonoff_motion_snzb03p%2Fsonoff_motion_snzb03p.yaml) |
 | [Scheduled evening dimming](#scheduled-evening-dimming) | Two-step evening dim for a set of areas: lights above a threshold are dimmed to a target level at one time, then dimmed further at a second, later time. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_dimming%2Fscheduled_dimming.yaml) |
+| [UniFi Protect person-detection notification](#unifi-protect-person-detection-notification) | Notifies phones with a live snapshot when a UniFi Protect camera detects a person, but only while everyone selected is away. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Funifiprotect_person_detection%2Funifiprotect_person_detection.yaml) |
 
 ### Hue Smart Button (ROM001) via ZHA
 
@@ -410,6 +411,49 @@ described under "What it controls" for presence lighting.
 Only two steps are offered, not an arbitrary schedule — pick times,
 thresholds, and targets that fit your evening. If you want more than two
 dims, add a second instance of this blueprint with its own times.
+
+### UniFi Protect person-detection notification
+
+Notifies one or more phones, with a live camera snapshot attached, when a
+UniFi Protect camera's "Person detected" sensor fires — but only while
+everyone selected is away.
+
+| Situation | Behaviour |
+| --- | --- |
+| Person detected, everyone selected is away | Notifies every phone listed, title + message + live snapshot |
+| Person detected, anyone selected is home | Nothing — they're there to notice it themselves |
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Funifiprotect_person_detection%2Funifiprotect_person_detection.yaml)
+
+#### Requirements
+
+- The [`unifiprotect`](https://www.home-assistant.io/integrations/unifiprotect/)
+  core integration, with the target camera's "Person detected" binary
+  sensor exposed (Settings → Devices & services → the camera's device page).
+- One or more legacy `notify.mobile_app_...` services — see "Phones to
+  notify" below.
+
+#### Tapping the notification
+
+The notification's tap target is the camera entity itself (via the
+Companion app's `entity_id` data key), which opens that entity's more-info
+view — the live feed, and for a UniFi Protect camera, its history
+scrubber to step back into the clip that triggered the notification.
+
+This deliberately doesn't try to deep-link into the UniFi Protect app
+itself. Its iOS app does have an unofficial, community-reverse-engineered
+URL scheme (`unifi-protect://protect/devices/<id>`), but it only opens a
+camera's *live* view, not the specific event/clip, and the iOS Companion
+app has a known issue launching external app URL schemes from a
+notification tap in the first place — not something worth building on for
+a notification going to an iPhone.
+
+#### Notes on behaviour
+
+**Everyone who must be away** takes multiple `person` entities and
+requires all of them to read "not home" — pick everyone who'd otherwise
+get a notification for something they're already there to see. There's no
+"someone is away" mode; add a second instance if you want that instead.
 
 ## Why these are self-contained
 

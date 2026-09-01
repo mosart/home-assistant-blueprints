@@ -12,6 +12,11 @@ blueprint:
     would only ever fire once. The occupancy entity clears properly (using
     the sensor's own presence time-out, adjustable on the device itself) and
     retriggers correctly on every subsequent visit.
+
+
+    Tapping the notification opens the camera entity's more-info view —
+    live feed plus, for a camera with recorded history, its timeline to
+    scrub back to the moment that triggered it.
   source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/sonoff_motion_snzb03p/sonoff_motion_snzb03p.yaml
   domain: automation
   homeassistant:
@@ -29,7 +34,9 @@ blueprint:
               model: SNZB-03P
     camera:
       name: Camera
-      description: A snapshot from this camera is attached to the notification.
+      description: >-
+        A snapshot from this camera is attached to the notification, and
+        tapping the notification opens this entity's more-info view.
       selector:
         entity:
           filter:
@@ -86,3 +93,4 @@ actions:
             message: !input message
             data:
               image: "/api/camera_proxy/{{ camera }}"
+              entity_id: "{{ camera }}"

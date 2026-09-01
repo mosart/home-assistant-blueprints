@@ -1,0 +1,107 @@
+blueprint:
+  name: "[mosart] UniFi Protect person-detection notification"
+  description: >-
+    Notifies one or more phones when a UniFi Protect camera detects a
+    person, with a live snapshot attached — but only while everyone picked
+    below is away, so it stays quiet while someone's actually home to
+    notice on their own.
+
+
+    Tapping the notification opens the camera's live view (and, for a
+    UniFi Protect camera, its history scrubber) directly in the Home
+    Assistant companion app — see the README for why this targets Home
+    Assistant rather than the UniFi Protect app itself.
+  source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/unifiprotect_person_detection/unifiprotect_person_detection.yaml
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    person_sensor:
+      name: Person-detected sensor
+      description: >-
+        The UniFi Protect camera's "Person detected" binary sensor. Find it
+        under the camera's device page — it's unrelated to the camera
+        entity itself, which is selected separately below.
+      selector:
+        entity:
+          filter:
+            - integration: unifiprotect
+              domain: binary_sensor
+    camera:
+      name: Camera
+      description: >-
+        A live snapshot from this camera is attached to the notification,
+        and tapping the notification opens this entity's more-info view.
+      selector:
+        entity:
+          filter:
+            - domain: camera
+    away_persons:
+      name: Everyone who must be away
+      description: >-
+        The notification only fires while every person selected here shows
+        as "not home" — so it stays quiet while any one of them is around
+        to notice on their own. Pick everyone who'd otherwise get this
+        notification for no reason.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: person
+    notify_services:
+      name: Phones to notify
+      description: >-
+        One or more legacy `notify.mobile_app_...` services, given as just
+        the part after `notify.` (e.g. `mobile_app_fp5`) — find yours under
+        Developer Tools → Actions by searching "notify". The modern
+        per-device notify entity (`notify.send_message`) doesn't support
+        the camera-snapshot attachment below, so this blueprint uses the
+        legacy service instead.
+      selector:
+        text:
+          multiple: true
+    title:
+      name: Notification title
+      default: "🚨 Persoon gedetecteerd"
+      selector:
+        text:
+    message:
+      name: Notification message
+      description: >-
+        Templates are rendered, so e.g. `{{ now().strftime('%H:%M') }}`
+        works here.
+      default: "Er is een persoon gedetecteerd terwijl jullie niet thuis zijn, om {{ now().strftime('%H:%M') }}."
+      selector:
+        text:
+
+mode: single
+max_exceeded: silent
+
+variables:
+  camera: !input camera
+
+triggers:
+  - trigger: state
+    entity_id: !input person_sensor
+    to: "on"
+
+conditions:
+  - condition: state
+    entity_id: !input away_persons
+    state: "not_home"
+
+actions:
+  # Fanned out per phone rather than one call with a target list: the
+  # camera-snapshot attachment needs the legacy per-device notify service
+  # (notify.mobile_app_<slug>), and each phone has its own service name —
+  # there is no single action that accepts a list of them.
+  - repeat:
+      for_each: !input notify_services
+      sequence:
+        - action: "notify.{{ repeat.item }}"
+          data:
+            title: !input title
+            message: !input message
+            data:
+              image: "/api/camera_proxy/{{ camera }}"
+              entity_id: "{{ camera }}"

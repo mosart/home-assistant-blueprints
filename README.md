@@ -193,6 +193,13 @@ trigger on it would only ever fire once. The blueprint triggers on the
 presence time-out (a `number` entity on the device itself) and retriggers
 correctly on every subsequent visit.
 
+Tapping the notification opens the camera entity's more-info view (via
+the Companion app's `entity_id` data key) — the live feed, and for a
+camera with recorded history, its timeline to scrub back to the moment
+that triggered it. The attached snapshot is a live image taken when the
+notification is sent, not a frame pulled from that exact moment; the
+timeline is how to see the actual detection.
+
 ### Presence lighting with scene memory
 
 Presence lighting for one room. Where a motion automation normally forces one

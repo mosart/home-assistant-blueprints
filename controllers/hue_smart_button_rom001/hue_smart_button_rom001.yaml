@@ -11,6 +11,15 @@ blueprint:
     - **Hold**: dims in steps; the direction reverses on every new hold
 
 
+    Every preset a short or double press applies is recorded in an
+    `input_text` helper — named after the **Room** input, the same way the
+    `[mosart] Presence lighting with scene memory` and
+    `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` blueprints derive their
+    own name for it — so a presence automation can restore the room's last
+    chosen scene instead of forcing a fixed one. The helper doesn't need to
+    exist: without one, there's just nothing to restore yet.
+
+
     Requires the `scene_presets` custom integration (Hypfer/hass-scene_presets).
     Each button needs its own toggle helper to remember the dim direction.
   source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/hue_smart_button_rom001/hue_smart_button_rom001.yaml
@@ -53,6 +62,27 @@ blueprint:
       selector:
         entity:
           domain: input_boolean
+    room:
+      name: Room
+      description: >-
+        The area(s) this button lives in. Used only to derive the "last
+        chosen scene" helper's entity ID (`input_text.<room>_laatste_preset`)
+        — every preset a short or double press applies is written there, so
+        a presence automation can restore what you picked instead of
+        forcing one fixed scene (a toggle-off short press writes nothing,
+        same as leaving a room dark).
+
+        Pick the same area(s), in the same order, as the matching Presence
+        lighting instance's **Rooms** input — both blueprints derive the
+        identical helper name from this, so nothing needs wiring by hand.
+        That helper isn't created automatically; make an `input_text` named
+        to match once (Settings → Devices & services → Helpers), or leave
+        this pointed at an area with no matching helper to skip the feature
+        entirely — a missing helper is silently treated as "nothing
+        remembered yet."
+      selector:
+        area:
+          multiple: true
     preset_short:
       name: Preset for short press
       description: >-
@@ -390,6 +420,15 @@ max_exceeded: silent
 
 variables:
   step_size: !input dim_step
+  room: !input room
+  # The area selector yields a list, but an instance saved before this
+  # input existed (or before it became multi-select) could still hold a
+  # bare string — accept both, same as the presence_lighting blueprint.
+  room_list: "{{ [room] if room is string else room }}"
+  # Deliberately the same formula presence_lighting.yaml and the Hue Tap
+  # Dial blueprint use for this helper, so all three agree on its name
+  # without any of them telling the others what they picked.
+  last_preset_helper: "input_text.{{ room_list | join('_') }}_laatste_preset"
 
 triggers:
   - trigger: event
@@ -440,6 +479,15 @@ actions:
                 data:
                   preset_id: !input preset_short
                   targets: !input lights
+              - if:
+                  - condition: template
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
+                then:
+                  - action: input_text.set_value
+                    target:
+                      entity_id: "{{ last_preset_helper }}"
+                    data:
+                      value: !input preset_short
 
       # Double press: second preset
       - conditions:
@@ -450,6 +498,15 @@ actions:
             data:
               preset_id: !input preset_double
               targets: !input lights
+          - if:
+              - condition: template
+                value_template: "{{ states(last_preset_helper) != 'unknown' }}"
+            then:
+              - action: input_text.set_value
+                target:
+                  entity_id: "{{ last_preset_helper }}"
+                data:
+                  value: !input preset_double
 
       # Hold: one dim step per step event
       - conditions:

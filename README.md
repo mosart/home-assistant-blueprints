@@ -59,6 +59,24 @@ The dropdown is generated from upstream preset data by
 new presets and you want them reflected here, run
 `python3 scripts/generate_scene_presets_options.py` and review the diff.
 
+#### Remembering the last scene
+
+Every preset a short or double press applies is written to an `input_text`
+helper named after the **Room** input — `input_text.<room>_laatste_preset`
+(areas joined with `_` for a button spanning more than one). A short press
+that just toggles the lights off writes nothing, same as a room going dark.
+
+This is the same name the `[mosart] Presence lighting with scene memory`
+and `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` blueprints derive from
+their own **Rooms**/**Room** input — point every instance in a room at the
+same area(s) and they all agree on the helper without any of them being
+told about the others. None of them need it to actually exist: pick
+**Room** for a button in a space with no matching helper (or no
+presence-lighting instance at all) and the feature just has nothing to
+write to or restore from yet. Create the helper once, named to match, only
+where you actually want the memory to work — Settings → Devices & services
+→ Helpers → Text.
+
 #### Notes on behaviour
 
 The button keeps its own internal dim direction, which drifts out of sync with
@@ -284,10 +302,11 @@ order and stops at the first answer:
    dashboard, a voice assistant, or anything else. Snapshots are transient and
    are lost when Home Assistant restarts, which is what the next two are for.
 2. **Did a remote record a preset?** Read from
-   `input_text.<room>_laatste_preset` — the same name the Hue Tap Dial
-   blueprint derives from its own **Room** input, so nothing needs wiring
-   by hand (see its "Remembering the last scene" section above). A room
-   with no remote, or no such helper, simply has nothing to restore here.
+   `input_text.<room>_laatste_preset` — the same name the Hue Tap Dial and
+   Hue Smart Button blueprints derive from their own **Room** input, so
+   nothing needs wiring by hand (see their "Remembering the last scene"
+   sections above). A room with no remote, or no such helper, simply has
+   nothing to restore here.
 3. **Otherwise, what time is it?** Night between the two boundary times,
    evening from its own boundary until night begins, daytime for everything
    else.

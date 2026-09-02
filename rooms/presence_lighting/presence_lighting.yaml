@@ -8,8 +8,9 @@ blueprint:
     - **Motion while the room is dark**: restores the room's last known light
     state, falling back to the last preset a remote applied — read from
     `input_text.<room>_laatste_preset`, the same helper name the
-    `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` blueprint derives from
-    its own **Room** input, so nothing needs wiring by hand; a room with no
+    `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` and
+    `[mosart] Hue Smart Button (ROM001) via ZHA` blueprints derive from
+    their own **Room** input, so nothing needs wiring by hand; a room with no
     remote (or no such helper) just has nothing to restore here — then to
     the preset for the current time of day. During the daytime slot, the "Always
     use the Daytime preset during daytime" toggle (on by default) skips that
@@ -591,11 +592,12 @@ variables:
   # other's memory.
   snapshot_scene_id: "presence_snapshot_{{ room_list | join('_') }}"
   snapshot_entity: "scene.presence_snapshot_{{ room_list | join('_') }}"
-  # Deliberately the same formula the Hue Tap Dial blueprint uses for this
-  # helper, so the two agree on its name without either one telling the
-  # other what it picked — see that blueprint's "Room" input. The helper
-  # doesn't need to exist: a room with no remote simply has nothing to
-  # restore here yet (see the fallback's own read below).
+  # Deliberately the same formula the Hue Tap Dial and Hue Smart Button
+  # blueprints use for this helper, so all three agree on its name without
+  # any of them telling the others what they picked — see those
+  # blueprints' "Room" input. The helper doesn't need to exist: a room
+  # with no remote simply has nothing to restore here yet (see the
+  # fallback's own read below).
   last_preset_helper: "input_text.{{ room_list | join('_') }}_laatste_preset"
 
 triggers:

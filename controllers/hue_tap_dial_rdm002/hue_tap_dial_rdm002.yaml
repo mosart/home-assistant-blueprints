@@ -19,10 +19,14 @@ blueprint:
     - **Dial rotation**: adjusts brightness; turn speed controls step size
 
 
-    Optionally records every applied preset in an `input_text` helper, so
-    other automations can restore the room's last chosen scene instead of
-    forcing a fixed one. That helper is also what lets the toggle recognise a
-    repeat press, so the toggle needs it.
+    Every applied preset is recorded in an `input_text` helper — named after
+    the **Room** input below, the same way the `[mosart] Presence lighting
+    with scene memory` blueprint derives its own name for it — so a presence
+    automation can restore the room's last chosen scene instead of forcing a
+    fixed one. That helper is also what lets "Toggle off on repeat press"
+    recognise a repeat press. Neither feature needs the helper to actually
+    exist: without one, the remote just has nothing to restore or compare
+    against yet.
 
 
     Requires the `scene_presets` custom integration (Hypfer/hass-scene_presets).
@@ -396,19 +400,26 @@ blueprint:
       default: false
       selector:
         boolean:
-    last_preset_helper:
-      name: Remember last preset in
+    room:
+      name: Room
       description: >-
-        Optional `input_text` helper. Every preset this remote applies is
-        written to it, giving the room a "last chosen scene" other
-        automations can fall back on — a motion sensor can restore what you
-        picked instead of forcing one fixed scene. Nothing is written when a
-        press only toggles the lights off. Leave empty to disable.
-      default: ""
+        The area(s) this remote lives in. Used only to derive the "last
+        chosen scene" helper's entity ID (`input_text.<room>_laatste_preset`)
+        — every preset this remote applies is written there, so a presence
+        automation can restore what you picked instead of forcing one fixed
+        scene. Nothing is written when a press only toggles the lights off.
+
+        Pick the same area(s), in the same order, as the matching Presence
+        lighting instance's **Rooms** input — both blueprints derive the
+        identical helper name from this, so nothing needs wiring by hand.
+        That helper isn't created automatically; make an `input_text` named
+        to match once (Settings → Devices & services → Helpers), or leave
+        this pointed at an area with no matching helper to skip the feature
+        entirely — a missing helper is silently treated as "nothing
+        remembered yet."
       selector:
-        entity:
-          filter:
-            - domain: input_text
+        area:
+          multiple: true
     off_on_long_press:
       name: Long press turns the lights off
       description: >-
@@ -451,7 +462,15 @@ max_exceeded: silent
 variables:
   dial_max_step: !input dial_max_step
   toggle_off_on_repeat: !input toggle_off_on_repeat
-  last_preset_helper: !input last_preset_helper
+  room: !input room
+  # The area selector yields a list, but an instance saved before this
+  # input existed (or before it became multi-select) could still hold a
+  # bare string — accept both, same as the presence_lighting blueprint.
+  room_list: "{{ [room] if room is string else room }}"
+  # Deliberately the same formula presence_lighting.yaml uses for this
+  # helper, so the two blueprints agree on its name without either one
+  # telling the other what it picked.
+  last_preset_helper: "input_text.{{ room_list | join('_') }}_laatste_preset"
   button_1_short: !input button_1_short
   button_2_short: !input button_2_short
   button_3_short: !input button_3_short
@@ -562,7 +581,6 @@ actions:
               - condition: template
                 value_template: >-
                   {{ toggle_off_on_repeat
-                     and (last_preset_helper | trim) != ''
                      and states(last_preset_helper) == button_1_short }}
               - condition: light.is_on
                 target: !input lights
@@ -581,7 +599,7 @@ actions:
                   targets: !input lights
               - if:
                   - condition: template
-                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
                 then:
                   - action: input_text.set_value
                     target:
@@ -602,7 +620,7 @@ actions:
                   targets: !input lights
               - if:
                   - condition: template
-                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
                 then:
                   - action: input_text.set_value
                     target:
@@ -617,7 +635,6 @@ actions:
               - condition: template
                 value_template: >-
                   {{ toggle_off_on_repeat
-                     and (last_preset_helper | trim) != ''
                      and states(last_preset_helper) == button_2_short }}
               - condition: light.is_on
                 target: !input lights
@@ -636,7 +653,7 @@ actions:
                   targets: !input lights
               - if:
                   - condition: template
-                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
                 then:
                   - action: input_text.set_value
                     target:
@@ -657,7 +674,7 @@ actions:
                   targets: !input lights
               - if:
                   - condition: template
-                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
                 then:
                   - action: input_text.set_value
                     target:
@@ -672,7 +689,6 @@ actions:
               - condition: template
                 value_template: >-
                   {{ toggle_off_on_repeat
-                     and (last_preset_helper | trim) != ''
                      and states(last_preset_helper) == button_3_short }}
               - condition: light.is_on
                 target: !input lights
@@ -691,7 +707,7 @@ actions:
                   targets: !input lights
               - if:
                   - condition: template
-                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
                 then:
                   - action: input_text.set_value
                     target:
@@ -712,7 +728,7 @@ actions:
                   targets: !input lights
               - if:
                   - condition: template
-                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
                 then:
                   - action: input_text.set_value
                     target:
@@ -727,7 +743,6 @@ actions:
               - condition: template
                 value_template: >-
                   {{ toggle_off_on_repeat
-                     and (last_preset_helper | trim) != ''
                      and states(last_preset_helper) == button_4_short }}
               - condition: light.is_on
                 target: !input lights
@@ -746,7 +761,7 @@ actions:
                   targets: !input lights
               - if:
                   - condition: template
-                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
                 then:
                   - action: input_text.set_value
                     target:
@@ -767,7 +782,7 @@ actions:
                   targets: !input lights
               - if:
                   - condition: template
-                    value_template: "{{ (last_preset_helper | trim) != '' }}"
+                    value_template: "{{ states(last_preset_helper) != 'unknown' }}"
                 then:
                   - action: input_text.set_value
                     target:

@@ -87,9 +87,10 @@ Pressing a *different* button always switches to that button's preset, so
 the remote never turns the lights off when you meant to change scene.
 
 Recognising a repeat press means knowing which preset is currently showing,
-so this needs the **Remember last preset in** helper below. Without it the
-toggle has nothing to compare against and every short press simply applies
-its preset. Double press is unaffected and always applies its preset.
+so this needs the "last chosen scene" helper described below to actually
+exist. Without it the toggle has nothing to compare against and every short
+press simply applies its preset. Double press is unaffected and always
+applies its preset.
 
 With **Long press turns the lights off** enabled (also off by default),
 holding any of the four buttons switches the lights off regardless of which
@@ -97,31 +98,22 @@ preset is active.
 
 #### Remembering the last scene
 
-Point the optional **Remember last preset in** input at an `input_text`
-helper and every preset the remote applies is written to it. That gives the
-room a "last chosen scene" that other automations can read — the pattern a
-Hue bridge gets for free, where each room tracks which scene is currently
-active and sensors fall back on it instead of forcing one fixed scene.
+Every preset this remote applies is written to an `input_text` helper named
+after the **Room** input — `input_text.<room>_laatste_preset` (areas
+joined with `_` for a remote spanning more than one). That gives the room a
+"last chosen scene" other automations can read — the pattern a Hue bridge
+gets for free, where each room tracks which scene is currently active and
+sensors fall back on it instead of forcing one fixed scene.
 
-A presence automation can then restore what you actually picked:
-
-```yaml
-- if:
-    - condition: template
-      value_template: >-
-        {{ states('input_text.living_room_last_preset')
-           not in ['', 'unknown', 'unavailable'] }}
-  then:
-    - action: scene_presets.apply_preset
-      data:
-        preset_id: "{{ states('input_text.living_room_last_preset') }}"
-        targets:
-          area_id: living_room
-  else:
-    - action: scene.turn_on
-      target:
-        entity_id: scene.living_room_bright
-```
+This is the same name the `[mosart] Presence lighting with scene memory`
+blueprint derives from its own **Rooms** input (see its "The three
+fallbacks" section below) — point both instances at the same area(s) and
+they agree on the helper without either one being told about the other.
+Neither blueprint needs it to actually exist: pick **Room** for a remote
+in a space with no matching helper (or no presence-lighting instance at
+all) and the feature just has nothing to write to or restore from yet.
+Create the helper once, named to match, only where you actually want the
+memory to work — Settings → Devices & services → Helpers → Text.
 
 Only presses that actually apply a preset are recorded — a press that just
 toggles the lights off leaves the stored value alone, so it still reflects
@@ -291,8 +283,11 @@ order and stops at the first answer:
    whatever was really on the lights — including changes made from a
    dashboard, a voice assistant, or anything else. Snapshots are transient and
    are lost when Home Assistant restarts, which is what the next two are for.
-2. **Did a remote record a preset?** Set the optional **Last preset helper**
-   to the same `input_text` the Hue Tap Dial blueprint writes to.
+2. **Did a remote record a preset?** Read from
+   `input_text.<room>_laatste_preset` — the same name the Hue Tap Dial
+   blueprint derives from its own **Room** input, so nothing needs wiring
+   by hand (see its "Remembering the last scene" section above). A room
+   with no remote, or no such helper, simply has nothing to restore here.
 3. **Otherwise, what time is it?** Night between the two boundary times,
    evening from its own boundary until night begins, daytime for everything
    else.

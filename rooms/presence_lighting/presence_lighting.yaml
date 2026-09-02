@@ -6,8 +6,12 @@ blueprint:
 
 
     - **Motion while the room is dark**: restores the room's last known light
-    state, falling back to the last preset a remote applied, then to the
-    preset for the current time of day. During the daytime slot, the "Always
+    state, falling back to the last preset a remote applied — read from
+    `input_text.<room>_laatste_preset`, the same helper name the
+    `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` blueprint derives from
+    its own **Room** input, so nothing needs wiring by hand; a room with no
+    remote (or no such helper) just has nothing to restore here — then to
+    the preset for the current time of day. During the daytime slot, the "Always
     use the Daytime preset during daytime" toggle (on by default) skips that
     memory and applies the Daytime preset outright, so the morning doesn't
     just pick up last night's mood; turn it off to restore memory during the
@@ -93,17 +97,6 @@ blueprint:
         entity:
           filter:
             - domain: input_boolean
-    last_preset_helper:
-      name: Last preset helper
-      description: >-
-        Optional `input_text` that a remote writes its applied preset to (see
-        the Hue Tap Dial blueprint). Consulted when no snapshot is available.
-        Leave empty to skip this fallback.
-      default: ""
-      selector:
-        entity:
-          filter:
-            - domain: input_text
     ignore_memory_in_daytime:
       name: Always use the Daytime preset during daytime
       description: >-
@@ -559,7 +552,6 @@ max_exceeded: silent
 variables:
   room: !input room
   lights: !input lights
-  last_preset_helper: !input last_preset_helper
   ignore_memory_in_daytime: !input ignore_memory_in_daytime
   force_preset_on_motion: !input force_preset_on_motion
   night_brightness_pct: !input night_brightness_pct
@@ -599,6 +591,12 @@ variables:
   # other's memory.
   snapshot_scene_id: "presence_snapshot_{{ room_list | join('_') }}"
   snapshot_entity: "scene.presence_snapshot_{{ room_list | join('_') }}"
+  # Deliberately the same formula the Hue Tap Dial blueprint uses for this
+  # helper, so the two agree on its name without either one telling the
+  # other what it picked — see that blueprint's "Room" input. The helper
+  # doesn't need to exist: a room with no remote simply has nothing to
+  # restore here yet (see the fallback's own read below).
+  last_preset_helper: "input_text.{{ room_list | join('_') }}_laatste_preset"
 
 triggers:
   # Motion and occupancy are two independent purpose-specific families, so a
@@ -776,9 +774,8 @@ actions:
                         conditions:
                           - condition: template
                             value_template: >-
-                              {{ (last_preset_helper | trim) != ''
-                                 and states(last_preset_helper)
-                                     not in ['', 'unknown', 'unavailable'] }}
+                              {{ states(last_preset_helper)
+                                 not in ['', 'unknown', 'unavailable'] }}
                         sequence:
                           - action: scene_presets.apply_preset
                             data:

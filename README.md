@@ -217,7 +217,7 @@ fixed scene, this one defers to whatever scene is already in use.
 
 | Situation | Behaviour |
 | --- | --- |
-| Motion, room dark | Restores the room's last known state; falls back to the last preset a remote applied, then to the preset for the current time of day |
+| Motion, room dark | Depends on the current time slot's preset behaviour (below): restores the room's last known state (falling back to the last preset a remote applied, then to that slot's own preset) and pins its brightness to the slot's level, or always applies that slot's own preset instead, with or without a brightness override |
 | Motion while dimmed | Puts back exactly what was on before the dim |
 | No motion (30 min, adjustable) | Dims as a warning, then switches off |
 | Media playing or paused in the room | Postpones dimming and switching off |
@@ -294,8 +294,10 @@ computed result from another field. Two ways to check before saving:
 
 #### The three fallbacks
 
-When motion arrives in a dark room, the automation asks three questions in
-order and stops at the first answer:
+When motion arrives in a dark room, and the current time slot's **preset
+behaviour** is set to "Keep whichever preset is already showing, just fix
+its brightness" (see below), the automation asks three questions in order
+and stops at the first answer:
 
 1. **Is there a snapshot?** Taken every time the room is dimmed, so it holds
    whatever was really on the lights — including changes made from a
@@ -311,9 +313,10 @@ order and stops at the first answer:
    evening from its own boundary until night begins, daytime for everything
    else.
 
-Time of day is deliberately last. It is the answer when the room has no
-memory, not an override that reimposes a schedule on a room you just set by
-hand.
+Whichever of the three ends up applied, its brightness is then pinned to
+that slot's own brightness input — see "The three time slots" below. The
+other two preset behaviour modes skip this chain entirely and always apply
+that slot's own preset instead.
 
 #### The three time slots
 
@@ -332,33 +335,41 @@ toggle is *on* by default (matching this blueprint's original behaviour,
 sunset-only); morning's is *off* by default (a fixed time, as before). Night
 has no such toggle — it only ever uses **Night begins**, a fixed time.
 
-**Night preset brightness** (default 2%) always overrides whatever
-brightness the Night preset itself carries — the only one of the three
-presets with a dedicated brightness input. A preset picked for its colour
-doesn't necessarily read as dim once applied (Hue-style presets are mostly
-about colour, not brightness), so this pins the night look down
-independently of whichever preset is selected above. Daytime and Evening
-have no such override; they use whatever brightness their preset applies.
+Each of the three presets also has its own **brightness** input and
+**preset behaviour** dropdown next to it:
 
-Turning either toggle on doesn't need a matching change anywhere else: the
-Daytime/Evening/Night decision above and the "Always use the Daytime
-preset during daytime" toggle below both read the same boundaries, so they
-stay in sync automatically.
+| Preset | Brightness | Default behaviour |
+| --- | --- | --- |
+| Daytime | 100% | Always use this preset, at the brightness above |
+| Evening | 50% | Keep whichever preset is already showing, just fix its brightness |
+| Night | 3% | Keep whichever preset is already showing, just fix its brightness |
 
-#### Always use the Daytime preset during daytime
+**Preset behaviour** has three options, the same set for all three slots:
 
-On by default, and only affects the daytime slot (between **Morning
-begins** and the evening boundary) — night and evening always restore
-memory first, regardless of this setting.
+- **Always use this preset, at the brightness above** — ignores memory
+  entirely and applies that slot's own preset, pinned to its brightness
+  input. This is the Daytime default: mornings reliably reset to a fixed
+  look rather than pick up whatever mood was left over from the previous
+  evening.
+- **Always use this preset, at its own brightness** — the same, but leaves
+  the preset's own brightness untouched; nothing overrides it.
+- **Keep whichever preset is already showing, just fix its brightness** —
+  restores the room's memory (the three fallbacks above), then pins
+  whichever brightness that leaves the room at to the slot's brightness
+  input, without changing which preset/colour it is. This is the
+  Evening and Night default: a room that keeps its evening scene into the
+  night (by design — see the three fallbacks above) still gets dimmed down
+  for it, instead of staying at whatever brightness it was left at.
 
-While on, it skips straight past both memory fallbacks during the day: the
-snapshot from last night and any last remote preset are ignored, and motion
-always applies the **Daytime preset** instead — so mornings reliably reset to
-a fixed look rather than pick up whatever mood was left over from the
-previous evening.
+A preset picked for its colour doesn't necessarily read as dim once applied
+(Hue-style presets are mostly about colour, not brightness) — the
+brightness input pins the slot's look down independently of whichever
+preset is selected, whichever of the first two modes is in effect.
 
-Turn it off to restore the room's memory during the day too, the same as
-night and evening.
+Turning either sunrise/sunset toggle on doesn't need a matching change
+anywhere else: the Daytime/Evening/Night decision above and each preset's
+own behaviour setting both read the same boundaries, so they stay in sync
+automatically.
 
 #### Always apply time-of-day preset on motion
 
@@ -384,8 +395,10 @@ previous state. The trade-off is the room's memory: a brightness or scene
 you set by hand (from a dashboard, a voice assistant, or a remote) no longer
 survives the next motion event either.
 
-Brightness follows the preset itself here, the same as everywhere else in
-this blueprint — nothing overrides it.
+Each slot's own brightness input and preset behaviour still apply here: its
+"at its own brightness" mode leaves the preset untouched, the other two
+force it to that slot's brightness input (there is no memory left to "keep"
+when this toggle is on, so both act the same here).
 
 #### Notes on behaviour
 

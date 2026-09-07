@@ -5,20 +5,24 @@ blueprint:
     use instead of overriding it.
 
 
-    - **Motion while the room is dark**: restores the room's last known light
-    state, falling back to the last preset a remote applied — read from
+    - **Motion while the room is dark**: each time slot (Daytime, Evening,
+    Night) has its own **preset behaviour** setting, one of three modes —
+    "Always use this preset, at the brightness above", "Always use this
+    preset, at its own brightness", or "Keep whichever preset is already
+    showing, just fix its brightness". The last of those three is the
+    memory path: it restores the room's last known light state, falling
+    back to the last preset a remote applied — read from
     `input_text.<room>_laatste_preset`, the same helper name the
     `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` and
     `[mosart] Hue Smart Button (ROM001) via ZHA` blueprints derive from
     their own **Room** input, so nothing needs wiring by hand; a room with no
     remote (or no such helper) just has nothing to restore here — then to
-    the preset for the current time of day. During the daytime slot, the "Always
-    use the Daytime preset during daytime" toggle (on by default) skips that
-    memory and applies the Daytime preset outright, so the morning doesn't
-    just pick up last night's mood; turn it off to restore memory during the
-    day too. Each preset's time boundary sits next to it below — morning and
-    evening can each use a fixed clock time or the sun's actual
-    sunrise/sunset.
+    the preset for the current time of day, before pinning whatever ends up
+    applied to the slot's own brightness input. The other two modes skip
+    memory entirely and always apply that slot's own preset, either at its
+    own brightness or forced to the slot's brightness input. Each preset's
+    time boundary sits next to it below — morning and evening can each use a
+    fixed clock time or the sun's actual sunrise/sunset.
 
     - **Motion while dimmed**: puts back exactly what was on before the dim.
 
@@ -26,9 +30,10 @@ blueprint:
 
 
     The "Always apply time-of-day preset on motion" toggle (off by default)
-    replaces all of the above memory behaviour with something simpler and
-    more predictable: every motion event applies the Daytime/Evening/Night
-    preset for whatever slot it currently is, full stop — regardless of
+    replaces all of the above with something simpler and more predictable:
+    every motion event applies the Daytime/Evening/Night preset for whatever
+    slot it currently is (still following that slot's own preset behaviour,
+    unless its mode is "at its own brightness"), full stop — regardless of
     whether the light is already on, what it's currently showing, or why.
     Turn this on for a room where the light can end up in a state this
     blueprint never set (e.g. a smart bulb wired behind a physical wall
@@ -98,20 +103,6 @@ blueprint:
         entity:
           filter:
             - domain: input_boolean
-    ignore_memory_in_daytime:
-      name: Always use the Daytime preset during daytime
-      description: >-
-        On by default: motion in a dark room during the daytime slot always
-        applies the Daytime preset below, even if a snapshot or a last
-        preset is available. Night and evening are unaffected either way;
-        they always restore memory first.
-
-        Turn this off to restore the room's memory during the daytime slot
-        too, the same as night and evening (last known state, then last
-        remote preset, then the Daytime preset as a last resort).
-      default: true
-      selector:
-        boolean: {}
     force_preset_on_motion:
       name: Always apply time-of-day preset on motion
       description: >-
@@ -124,8 +115,12 @@ blueprint:
         Turn this on to skip all of that. Every motion event then applies
         the Daytime/Evening/Night preset below for whatever slot it
         currently is, unconditionally — including when the light is already
-        on. Use this for a room where the light can be switched or
-        power-cycled outside Home Assistant's control (a physical wall
+        on — still following that slot's own **preset behaviour** setting to
+        decide whether to force its brightness input too (its "Keep
+        whichever preset is already showing" mode behaves the same as
+        "at the brightness above" here, since there is no existing state
+        left to keep). Use this for a room where the light can be switched
+        or power-cycled outside Home Assistant's control (a physical wall
         switch on a smart bulb's power is the common case: the bulb comes
         back at its own default brightness, which this blueprint would
         otherwise mistake for an intentional state and leave alone).
@@ -433,6 +428,50 @@ blueprint:
             - label: "Sports live — Stadium"
               value: "f587060a-c4a1-4885-87ff-54c247fb29e6"
             # END generated scene_presets options
+    day_brightness_pct:
+      name: Daytime preset brightness
+      description: >-
+        Brightness applied to the Daytime preset when the behaviour below
+        calls for it. Defaults to 100% — mornings start at full brightness
+        regardless of what the preset itself carries.
+      default: 100
+      selector: &brightness_pct_selector
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+          step: 1
+    day_brightness_mode:
+      name: Daytime preset behaviour
+      description: >-
+        What motion in a dark room does during the daytime slot:
+
+        - **Always use this preset, at the brightness above** (default):
+        ignores memory and applies the Daytime preset below, pinned to the
+        brightness set above — mornings reliably reset to a fixed look
+        rather than pick up whatever mood was left over from the previous
+        evening.
+
+        - **Always use this preset, at its own brightness**: the same, but
+        leaves the preset's own brightness untouched.
+
+        - **Keep whichever preset is already showing, just fix its
+        brightness**: restores the room's memory instead (the last known
+        state, then the last preset a remote applied, then this preset as a
+        last resort), and pins whichever brightness that leaves the room at
+        to the level set above, without changing which preset/colour it is.
+      default: override_slot
+      selector: &brightness_mode_selector
+        select:
+          mode: dropdown
+          options:
+            - label: "Always use this preset, at the brightness above"
+              value: override_slot
+            - label: "Always use this preset, at its own brightness"
+              value: slot_only
+            - label: "Keep whichever preset is already showing, just fix its brightness"
+              value: override_current
     day_start:
       name: Morning begins
       description: >-
@@ -455,6 +494,20 @@ blueprint:
       name: Evening preset
       description: Applied after the evening slot starts, until the night slot begins.
       selector: *preset_selector
+    evening_brightness_pct:
+      name: Evening preset brightness
+      description: >-
+        Brightness applied to the Evening preset when the behaviour below
+        calls for it. Defaults to 50%.
+      default: 50
+      selector: *brightness_pct_selector
+    evening_brightness_mode:
+      name: Evening preset behaviour
+      description: >-
+        Same three modes as the Daytime preset above, applied to the
+        evening slot — see its description for what each one does.
+      default: override_current
+      selector: *brightness_mode_selector
     evening_start:
       name: Evening begins
       description: >-
@@ -481,19 +534,23 @@ blueprint:
     night_brightness_pct:
       name: Night preset brightness
       description: >-
-        Brightness the Night preset is applied at, overriding whatever
-        brightness the preset itself happens to carry. A preset picked for
-        its colour (e.g. a warm "Nightlight" look) doesn't necessarily come
-        with a brightness that actually reads as dim once applied — this
-        pins it down independently of that.
-      default: 2
-      selector:
-        number:
-          min: 1
-          max: 100
-          unit_of_measurement: "%"
-          mode: slider
-          step: 1
+        Brightness applied to the Night preset when the behaviour below
+        calls for it. Defaults to 3% — a preset picked for its colour (e.g.
+        a warm "Nightlight" look) doesn't necessarily come with a brightness
+        that actually reads as dim once applied, so this pins it down
+        independently of whichever preset is selected above.
+      default: 3
+      selector: *brightness_pct_selector
+    night_brightness_mode:
+      name: Night preset behaviour
+      description: >-
+        Same three modes as the Daytime preset above, applied to the night
+        slot — see its description for what each one does. Defaults to
+        "Keep whichever preset is already showing, just fix its
+        brightness", so a room that's kept its evening scene into the
+        night still gets dimmed down for it.
+      default: override_current
+      selector: *brightness_mode_selector
     night_start:
       name: Night begins
       description: Start of the night slot.
@@ -553,9 +610,15 @@ max_exceeded: silent
 variables:
   room: !input room
   lights: !input lights
-  ignore_memory_in_daytime: !input ignore_memory_in_daytime
   force_preset_on_motion: !input force_preset_on_motion
+  day_brightness_pct: !input day_brightness_pct
+  day_brightness_mode: !input day_brightness_mode
+  day_brightness: "{{ (day_brightness_pct | float) * 255 / 100 }}"
+  evening_brightness_pct: !input evening_brightness_pct
+  evening_brightness_mode: !input evening_brightness_mode
+  evening_brightness: "{{ (evening_brightness_pct | float) * 255 / 100 }}"
   night_brightness_pct: !input night_brightness_pct
+  night_brightness_mode: !input night_brightness_mode
   night_brightness: "{{ (night_brightness_pct | float) * 255 / 100 }}"
   day_start_use_sunrise: !input day_start_use_sunrise
   evening_start_use_sunset: !input evening_start_use_sunset
@@ -652,9 +715,8 @@ actions:
               # pre-empts all of them rather than being just another
               # fallback — that's the point of the toggle. Anchors the
               # night/evening time checks on their first use in the
-              # document; the "Daytime, and memory is turned off for it" and
-              # "Room is dark" branches further down reuse them as plain
-              # aliases.
+              # document; the "Room is dark" branch further down reuses
+              # them as plain aliases.
               - alias: Always apply the time-of-day preset, ignoring current state
                 conditions:
                   - condition: template
@@ -678,7 +740,8 @@ actions:
                           - action: scene_presets.apply_preset
                             data:
                               preset_id: !input preset_night
-                              brightness: "{{ night_brightness }}"
+                              brightness: >-
+                                {{ night_brightness if night_brightness_mode != 'slot_only' else omit }}
                               targets:
                                 entity_id: "{{ light_entities }}"
                       - alias: Evening
@@ -696,12 +759,16 @@ actions:
                           - action: scene_presets.apply_preset
                             data:
                               preset_id: !input preset_evening
+                              brightness: >-
+                                {{ evening_brightness if evening_brightness_mode != 'slot_only' else omit }}
                               targets:
                                 entity_id: "{{ light_entities }}"
                     default:
                       - action: scene_presets.apply_preset
                         data:
                           preset_id: !input preset_day
+                          brightness: >-
+                            {{ day_brightness if day_brightness_mode != 'slot_only' else omit }}
                           targets:
                             entity_id: "{{ light_entities }}"
               - alias: We dimmed it, so put back exactly what was there
@@ -730,87 +797,184 @@ actions:
                          | list | count == 0 }}
                 sequence:
                   - choose:
-                      # Checked first and ahead of the memory branches below,
-                      # so it pre-empts them rather than being just another
-                      # fallback — that's the point of the toggle. Repeats the
-                      # same not-night/not-evening test the time-based default
-                      # below uses, since "daytime" isn't its own condition.
-                      - alias: Daytime, and memory is turned off for it
+                      - alias: Night
                         conditions:
-                          - condition: template
-                            value_template: "{{ ignore_memory_in_daytime }}"
-                          - condition: not
-                            conditions:
-                              # Anchored above, in the "Always apply the
-                              # time-of-day preset" branch (its first use in
-                              # the document); reused here and by the
-                              # "Night"/"Evening" branches below as plain
-                              # aliases, so the sunrise/sunset toggles can't
-                              # drift out of sync between this gate and the
-                              # actual time slots.
-                              - *is_night_now
-                          - condition: not
-                            conditions:
-                              - *is_evening_now
+                          # Anchored above, in the "Always apply the
+                          # time-of-day preset" branch (its first use in the
+                          # document); reused here as a plain alias so the
+                          # sunrise/sunset toggle can't drift out of sync
+                          # between the two.
+                          - *is_night_now
                         sequence:
-                          - action: scene_presets.apply_preset
-                            data:
-                              preset_id: !input preset_day
-                              targets:
-                                entity_id: "{{ light_entities }}"
-                      # The snapshot entity is per-room and therefore dynamic,
-                      # so a native state condition cannot address it.
-                      - alias: Last known state
-                        conditions:
-                          - condition: template
-                            value_template: >-
-                              {{ states(snapshot_entity)
-                                 not in ['unknown', 'unavailable'] }}
-                        sequence:
-                          - action: scene.turn_on
-                            target:
-                              entity_id: "{{ snapshot_entity }}"
-                            data:
-                              transition: !input transition
-                      - alias: Last preset a remote applied
-                        conditions:
-                          - condition: template
-                            value_template: >-
-                              {{ states(last_preset_helper)
-                                 not in ['', 'unknown', 'unavailable'] }}
-                        sequence:
-                          - action: scene_presets.apply_preset
-                            data:
-                              preset_id: "{{ states(last_preset_helper) }}"
-                              targets:
-                                entity_id: "{{ light_entities }}"
-                    default:
-                      - choose:
-                          - alias: Night
-                            conditions:
-                              - *is_night_now
-                            sequence:
-                              - action: scene_presets.apply_preset
+                          - choose:
+                              - alias: Force the Night preset, memory skipped
+                                conditions:
+                                  - condition: template
+                                    value_template: >-
+                                      {{ night_brightness_mode in ['override_slot', 'slot_only'] }}
+                                sequence:
+                                  - action: scene_presets.apply_preset
+                                    data:
+                                      preset_id: !input preset_night
+                                      brightness: >-
+                                        {{ night_brightness if night_brightness_mode == 'override_slot' else omit }}
+                                      targets:
+                                        entity_id: "{{ light_entities }}"
+                            default:
+                              # "Keep whichever preset is already showing":
+                              # restore memory exactly as the other two slots
+                              # do below, then pin the brightness that leaves
+                              # the room at.
+                              - choose:
+                                  # The snapshot entity is per-room and
+                                  # therefore dynamic, so a native state
+                                  # condition cannot address it.
+                                  - alias: Last known state
+                                    conditions:
+                                      - condition: template
+                                        value_template: >-
+                                          {{ states(snapshot_entity)
+                                             not in ['unknown', 'unavailable'] }}
+                                    sequence:
+                                      - action: scene.turn_on
+                                        target:
+                                          entity_id: "{{ snapshot_entity }}"
+                                        data:
+                                          transition: !input transition
+                                  - alias: Last preset a remote applied
+                                    conditions:
+                                      - condition: template
+                                        value_template: >-
+                                          {{ states(last_preset_helper)
+                                             not in ['', 'unknown', 'unavailable'] }}
+                                    sequence:
+                                      - action: scene_presets.apply_preset
+                                        data:
+                                          preset_id: "{{ states(last_preset_helper) }}"
+                                          targets:
+                                            entity_id: "{{ light_entities }}"
+                                default:
+                                  - action: scene_presets.apply_preset
+                                    data:
+                                      preset_id: !input preset_night
+                                      targets:
+                                        entity_id: "{{ light_entities }}"
+                              - action: light.turn_on
+                                target:
+                                  entity_id: "{{ light_entities }}"
                                 data:
-                                  preset_id: !input preset_night
                                   brightness: "{{ night_brightness }}"
-                                  targets:
-                                    entity_id: "{{ light_entities }}"
-                          - alias: Evening
+                                  transition: !input transition
+                      - alias: Evening
+                        conditions:
+                          - *is_evening_now
+                        sequence:
+                          - choose:
+                              - alias: Force the Evening preset, memory skipped
+                                conditions:
+                                  - condition: template
+                                    value_template: >-
+                                      {{ evening_brightness_mode in ['override_slot', 'slot_only'] }}
+                                sequence:
+                                  - action: scene_presets.apply_preset
+                                    data:
+                                      preset_id: !input preset_evening
+                                      brightness: >-
+                                        {{ evening_brightness if evening_brightness_mode == 'override_slot' else omit }}
+                                      targets:
+                                        entity_id: "{{ light_entities }}"
+                            default:
+                              - choose:
+                                  - alias: Last known state
+                                    conditions:
+                                      - condition: template
+                                        value_template: >-
+                                          {{ states(snapshot_entity)
+                                             not in ['unknown', 'unavailable'] }}
+                                    sequence:
+                                      - action: scene.turn_on
+                                        target:
+                                          entity_id: "{{ snapshot_entity }}"
+                                        data:
+                                          transition: !input transition
+                                  - alias: Last preset a remote applied
+                                    conditions:
+                                      - condition: template
+                                        value_template: >-
+                                          {{ states(last_preset_helper)
+                                             not in ['', 'unknown', 'unavailable'] }}
+                                    sequence:
+                                      - action: scene_presets.apply_preset
+                                        data:
+                                          preset_id: "{{ states(last_preset_helper) }}"
+                                          targets:
+                                            entity_id: "{{ light_entities }}"
+                                default:
+                                  - action: scene_presets.apply_preset
+                                    data:
+                                      preset_id: !input preset_evening
+                                      targets:
+                                        entity_id: "{{ light_entities }}"
+                              - action: light.turn_on
+                                target:
+                                  entity_id: "{{ light_entities }}"
+                                data:
+                                  brightness: "{{ evening_brightness }}"
+                                  transition: !input transition
+                    default:
+                      # Daytime
+                      - choose:
+                          - alias: Force the Daytime preset, memory skipped
                             conditions:
-                              - *is_evening_now
+                              - condition: template
+                                value_template: >-
+                                  {{ day_brightness_mode in ['override_slot', 'slot_only'] }}
                             sequence:
                               - action: scene_presets.apply_preset
                                 data:
-                                  preset_id: !input preset_evening
+                                  preset_id: !input preset_day
+                                  brightness: >-
+                                    {{ day_brightness if day_brightness_mode == 'override_slot' else omit }}
                                   targets:
                                     entity_id: "{{ light_entities }}"
                         default:
-                          - action: scene_presets.apply_preset
+                          - choose:
+                              - alias: Last known state
+                                conditions:
+                                  - condition: template
+                                    value_template: >-
+                                      {{ states(snapshot_entity)
+                                         not in ['unknown', 'unavailable'] }}
+                                sequence:
+                                  - action: scene.turn_on
+                                    target:
+                                      entity_id: "{{ snapshot_entity }}"
+                                    data:
+                                      transition: !input transition
+                              - alias: Last preset a remote applied
+                                conditions:
+                                  - condition: template
+                                    value_template: >-
+                                      {{ states(last_preset_helper)
+                                         not in ['', 'unknown', 'unavailable'] }}
+                                sequence:
+                                  - action: scene_presets.apply_preset
+                                    data:
+                                      preset_id: "{{ states(last_preset_helper) }}"
+                                      targets:
+                                        entity_id: "{{ light_entities }}"
+                            default:
+                              - action: scene_presets.apply_preset
+                                data:
+                                  preset_id: !input preset_day
+                                  targets:
+                                    entity_id: "{{ light_entities }}"
+                          - action: light.turn_on
+                            target:
+                              entity_id: "{{ light_entities }}"
                             data:
-                              preset_id: !input preset_day
-                              targets:
-                                entity_id: "{{ light_entities }}"
+                              brightness: "{{ day_brightness }}"
+                              transition: !input transition
       - alias: Room has gone quiet
         conditions:
           - condition: trigger

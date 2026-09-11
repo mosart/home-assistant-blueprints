@@ -258,12 +258,12 @@ so moving a lamp between areas is picked up without editing anything.
 **Lights (override)** is for departing from that: control only a subset, or
 reach a lamp that lives in another area. Leave it empty for the normal case.
 
-A light *group* in one of the areas (a Hue room/zone light, or a light
-group helper) is left out of the derived set — only its members are
-controlled. Snapshotting both a group and its members would fight itself on
-restore, since changing a member also changes the group's state. Set the
-override explicitly if you actually want the group driven instead of its
-members.
+A light *group* in one of the areas (a Hue room/zone light, a light group
+helper, or a ZHA Zigbee group) is left out of the derived set — only its
+members are controlled. Snapshotting both a group and its members would
+fight itself on restore, since changing a member also changes the group's
+state. Set the override explicitly if you actually want the group driven
+instead of its members.
 
 One consequence worth knowing: a motion sensor sitting in the wrong area
 becomes presence for that room. A driveway camera filed under the living room

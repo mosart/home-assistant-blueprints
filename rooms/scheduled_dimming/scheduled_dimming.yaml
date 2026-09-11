@@ -119,10 +119,11 @@ variables:
   #
   # The derived branch drops light *groups* (an entity whose own state
   # carries an entity_id attribute listing members, e.g. a Hue room/zone
-  # light or a light group helper) so a group and its members aren't both
-  # targeted — turning a member down would also move the group's reported
-  # brightness, double-counting the change. An explicit override is trusted
-  # as-is; if you deliberately listed a group, that's your call.
+  # light or a light group helper — or a group_entities attribute, e.g. a
+  # ZHA Zigbee group) so a group and its members aren't both targeted —
+  # turning a member down would also move the group's reported brightness,
+  # double-counting the change. An explicit override is trusted as-is; if
+  # you deliberately listed a group, that's your call.
   light_entities: >-
     {% if (lights | count) > 0 -%}
     {{ lights }}
@@ -131,7 +132,7 @@ variables:
         | select('match', 'light\.') | list -%}
     {%- set ns = namespace(out=[]) -%}
     {%- for e in candidates -%}
-      {%- if state_attr(e, 'entity_id') is none -%}
+      {%- if state_attr(e, 'entity_id') is none and state_attr(e, 'group_entities') is none -%}
         {%- set ns.out = ns.out + [e] -%}
       {%- endif -%}
     {%- endfor -%}

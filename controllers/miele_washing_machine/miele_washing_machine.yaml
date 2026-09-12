@@ -1,0 +1,178 @@
+blueprint:
+  name: "[mosart] Miele washing machine start/finished notification"
+  description: >-
+    Notifies one or more phones when the washing machine starts an actual
+    wash cycle, with the program, temperature and expected end time — and a
+    second notification when it's done.
+
+
+    "Started" fires on the transition to the Miele integration's `in_use`
+    status, not `on` (powered on, no program running yet) or `programmed`/
+    `waiting_to_start` (a delayed start has been set but hasn't begun) — so
+    this only notifies once the machine is actually washing. "Finished"
+    fires on the transition to `program_ended`.
+
+
+    The Miele integration reflects Miele's own cloud status for the
+    appliance, not a local reading — expect the same few-seconds lag
+    behind the machine's own display that the Miele app itself has.
+
+
+    Tapping either notification opens the appliance's status entity more-info
+    view.
+  source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/miele_washing_machine/miele_washing_machine.yaml
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    appliance_status:
+      name: Appliance status sensor
+      description: >-
+        The washing machine's own main status sensor (e.g. `sensor.hal_wasmachine`)
+        — its state is one of `on`/`in_use`/`program_ended`/etc. Not the
+        "Programma" or "Programmafase" sensor; those are selected separately
+        below.
+      selector:
+        entity:
+          filter:
+            - integration: miele
+              domain: sensor
+              device_class: enum
+    program:
+      name: Program sensor
+      description: The "Programma" sensor, read when the machine starts.
+      selector:
+        entity:
+          filter:
+            - integration: miele
+              domain: sensor
+              device_class: enum
+    end_time:
+      name: End time sensor
+      description: The "Eindtijd" sensor, read when the machine starts.
+      selector:
+        entity:
+          filter:
+            - integration: miele
+              domain: sensor
+              device_class: timestamp
+    temperature:
+      name: Temperature sensor
+      description: The "Temperatuur" sensor, read when the machine starts.
+      selector:
+        entity:
+          filter:
+            - integration: miele
+              domain: sensor
+              device_class: temperature
+    notify_targets:
+      name: Phones to notify
+      description: >-
+        One or more notify entities (the modern per-device notify entity
+        the Mobile App integration creates). No snapshot is attached here,
+        so — unlike this repo's camera-notification blueprints — there's no
+        need for the legacy `notify.mobile_app_...` service.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: notify
+    started_title:
+      name: "\"Started\" notification title"
+      default: "🧺 Wasmachine gestart"
+      selector:
+        text:
+    started_message:
+      name: "\"Started\" notification message"
+      description: >-
+        Templates are rendered. `{{ program_label }}`, `{{ temp_label }}` and
+        `{{ end_time_label }}` are computed from the sensors above — see the
+        README for exactly how.
+      default: "Programma {{ program_label }} op {{ temp_label }}. Klaar rond {{ end_time_label }}."
+      selector:
+        text:
+    finished_title:
+      name: "\"Finished\" notification title"
+      default: "✅ Wasmachine klaar"
+      selector:
+        text:
+    finished_message:
+      name: "\"Finished\" notification message"
+      default: "De wasmachine is klaar. Haal de was er even uit."
+      selector:
+        text:
+
+mode: single
+max_exceeded: silent
+
+variables:
+  appliance_status: !input appliance_status
+  program_entity: !input program
+  end_time_entity: !input end_time
+  temperature_entity: !input temperature
+  # Enum sensor states are English slugs (e.g. "cottons_eco") — Home
+  # Assistant only translates them to friendly text in its own frontend,
+  # not in a template, so this is the closest a notification gets without
+  # hand-maintaining a translation table for every Miele program.
+  program_label: >-
+    {%- set raw = states(program_entity) -%}
+    {%- if raw in ['unknown', 'unavailable', 'no_program'] -%}
+    onbekend programma
+    {%- else -%}
+    {{ raw | replace('_', ' ') | capitalize }}
+    {%- endif -%}
+  temp_label: >-
+    {%- set raw = states(temperature_entity) -%}
+    {%- if raw in ['unknown', 'unavailable'] -%}
+    onbekende temperatuur
+    {%- else -%}
+    {{ raw | float | round(0) | int }}°C
+    {%- endif -%}
+  end_time_label: >-
+    {%- set raw = states(end_time_entity) -%}
+    {%- if raw in ['unknown', 'unavailable'] -%}
+    onbekende eindtijd
+    {%- else -%}
+    {{ as_timestamp(raw) | timestamp_custom('%H:%M') }}
+    {%- endif -%}
+
+triggers:
+  - trigger: state
+    entity_id: !input appliance_status
+    to: in_use
+    id: started
+  - trigger: state
+    entity_id: !input appliance_status
+    to: program_ended
+    id: finished
+
+conditions: []
+
+actions:
+  - choose:
+      - alias: Wash cycle started
+        conditions:
+          - condition: trigger
+            id: started
+        sequence:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_targets
+            data:
+              title: !input started_title
+              message: !input started_message
+              data:
+                entity_id: "{{ appliance_status }}"
+      - alias: Wash cycle finished
+        conditions:
+          - condition: trigger
+            id: finished
+        sequence:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_targets
+            data:
+              title: !input finished_title
+              message: !input finished_message
+              data:
+                entity_id: "{{ appliance_status }}"

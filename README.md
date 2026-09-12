@@ -13,6 +13,7 @@ own setup and shared in case they are useful to someone else.
 | [Sonoff Motion Sensor (SNZB-03P) camera-snapshot notification](#sonoff-motion-sensor-snzb-03p-camera-snapshot-notification) | Notifies one or more phones when the sensor detects activity, with a live camera snapshot attached. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fsonoff_motion_snzb03p%2Fsonoff_motion_snzb03p.yaml) |
 | [Scheduled evening dimming](#scheduled-evening-dimming) | Two-step evening dim for a set of areas: lights above a threshold are dimmed to a target level at one time, then dimmed further at a second, later time. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_dimming%2Fscheduled_dimming.yaml) |
 | [UniFi Protect person-detection notification](#unifi-protect-person-detection-notification) | Notifies phones with a live snapshot when a UniFi Protect camera detects a person, but only while everyone selected is away. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Funifiprotect_person_detection%2Funifiprotect_person_detection.yaml) |
+| [Miele washing machine start/finished notification](#miele-washing-machine-startfinished-notification) | Notifies one or more phones when the washing machine starts an actual wash cycle, with the program, temperature and expected end time — and a second notification when it's done. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fmiele_washing_machine%2Fmiele_washing_machine.yaml) |
 
 ### Hue Smart Button (ROM001) via ZHA
 
@@ -488,6 +489,58 @@ a notification going to an iPhone.
 requires all of them to read "not home" — pick everyone who'd otherwise
 get a notification for something they're already there to see. There's no
 "someone is away" mode; add a second instance if you want that instead.
+
+### Miele washing machine start/finished notification
+
+Notifies one or more phones when the washing machine starts an actual wash
+cycle — with the program, temperature and expected end time — and again
+when it's done.
+
+| Situation | Behaviour |
+| --- | --- |
+| Appliance status sensor transitions to `in_use` | Notifies every phone listed: title + message with program, temperature and end time |
+| Appliance status sensor transitions to `program_ended` | Notifies every phone listed: title + message |
+| Sensor sits at `on`, `programmed` or `waiting_to_start` | Nothing — the machine is powered on or a delayed start is pending, but it isn't washing yet |
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fmiele_washing_machine%2Fmiele_washing_machine.yaml)
+
+#### Requirements
+
+- The [`miele`](https://www.home-assistant.io/integrations/miele/) core
+  integration, with the appliance's main status sensor exposed (an `enum`
+  sensor whose state is one of `on`/`in_use`/`program_ended`/etc.), plus its
+  program, end-time and temperature sensors.
+- One or more modern notify entities (`notify.<device>`, the kind the
+  Mobile App integration creates per device) — no snapshot is attached
+  here, so unlike this repo's camera-notification blueprints there's no
+  need for the legacy `notify.mobile_app_...` service.
+
+#### Why `in_use`, not `on`
+
+The Miele integration's main status sensor goes through several states
+before an actual wash: `on` (powered on, no program chosen yet), then
+`programmed` or `waiting_to_start` once a program is selected but before it
+begins (including a delayed start). "Started" only fires on the
+transition to `in_use`, so a notification means the machine is genuinely
+washing, not just switched on or armed for later.
+
+#### Tapping the notification
+
+Both notifications tap-target the appliance's main status entity (via the
+Companion app's `entity_id` data key), opening its more-info view.
+
+#### Notes on behaviour
+
+- The program and temperature are read once, at the moment the "started"
+  notification fires — later changes to those sensors don't retroactively
+  edit an already-sent notification.
+- Program names come through as the integration's own English slugs (e.g.
+  `cottons_eco`); the blueprint humanizes them (underscores to spaces,
+  capitalized) rather than hand-maintaining a translation table for every
+  Miele program.
+- The Miele integration reflects Miele's own cloud status for the
+  appliance, not a local reading — expect the same few-seconds lag behind
+  the machine's own display that the Miele app itself has.
 
 ## Why these are self-contained
 

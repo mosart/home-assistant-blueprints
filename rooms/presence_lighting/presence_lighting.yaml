@@ -24,6 +24,14 @@ blueprint:
     time boundary sits next to it below — morning and evening can each use a
     fixed clock time or the sun's actual sunrise/sunset.
 
+    - **Motion while already lit**: normally does nothing — a preset someone
+    just set by hand (remote, dashboard, voice assistant) is left alone.
+    Exception: a slot whose **preset behaviour** is "Keep whichever preset is
+    already showing, just fix its brightness" still pins the brightness to
+    that slot's brightness input, without touching the preset itself — so a
+    scene picked earlier in the evening still dims for the night instead of
+    staying at whatever brightness it was set to.
+
     - **Motion while dimmed**: puts back exactly what was on before the dim.
 
     - **No motion**: dims as a warning, then switches off.
@@ -452,7 +460,7 @@ blueprint:
         day_brightness_mode:
           name: Daytime preset behaviour
           description: >-
-            What motion in a dark room does during the daytime slot:
+            What motion does during the daytime slot:
 
             - **Always use this preset, at the brightness above** (default):
             ignores memory and applies the Daytime preset below, pinned to the
@@ -464,10 +472,16 @@ blueprint:
             leaves the preset's own brightness untouched.
 
             - **Keep whichever preset is already showing, just fix its
-            brightness**: restores the room's memory instead (the last known
-            state, then the last preset a remote applied, then this preset as a
-            last resort), and pins whichever brightness that leaves the room at
-            to the level set above, without changing which preset/colour it is.
+            brightness**: in a dark room, restores the room's memory instead
+            (the last known state, then the last preset a remote applied, then
+            this preset as a last resort), and pins whichever brightness that
+            leaves the room at to the level set above, without changing which
+            preset/colour it is. In a room that's already lit — a preset just
+            set by hand from a remote, dashboard, or voice assistant — motion
+            leaves the preset alone but still pins its brightness to the level
+            set above, so it still dims for the slot instead of staying at
+            whatever brightness it was set to. The other two behaviours never
+            touch an already-lit room; only this one does.
           default: override_slot
           selector: &brightness_mode_selector
             select:
@@ -994,6 +1008,55 @@ actions:
                             data:
                               brightness: "{{ day_brightness }}"
                               transition: !input transition
+            default:
+              # Room already has a light on — not caught by the dim-flag or
+              # dark-room branches above, and force_preset_on_motion is off
+              # (that would have pre-empted this whole choose). A remote or
+              # app may have just set a scene here on purpose, so the preset
+              # itself is never touched. Brightness is a different matter:
+              # only sync it, and only for whichever slot's behaviour is
+              # "keep whichever preset is already showing, just fix its
+              # brightness" — the same condition the "Room is dark" branch
+              # above checks before pinning brightness on a restored preset,
+              # just without needing the room to have gone fully dark first.
+              # The other two behaviours ("always use this preset") are left
+              # alone here; forcing them onto an already-lit room is what
+              # force_preset_on_motion is for.
+              - choose:
+                  - alias: Night
+                    conditions:
+                      - *is_night_now
+                    sequence:
+                      - condition: template
+                        value_template: "{{ night_brightness_mode == 'override_current' }}"
+                      - action: light.turn_on
+                        target:
+                          entity_id: "{{ light_entities }}"
+                        data:
+                          brightness: "{{ night_brightness }}"
+                          transition: !input transition
+                  - alias: Evening
+                    conditions:
+                      - *is_evening_now
+                    sequence:
+                      - condition: template
+                        value_template: "{{ evening_brightness_mode == 'override_current' }}"
+                      - action: light.turn_on
+                        target:
+                          entity_id: "{{ light_entities }}"
+                        data:
+                          brightness: "{{ evening_brightness }}"
+                          transition: !input transition
+                default:
+                  # Daytime
+                  - condition: template
+                    value_template: "{{ day_brightness_mode == 'override_current' }}"
+                  - action: light.turn_on
+                    target:
+                      entity_id: "{{ light_entities }}"
+                    data:
+                      brightness: "{{ day_brightness }}"
+                      transition: !input transition
       - alias: Room has gone quiet
         conditions:
           - condition: trigger

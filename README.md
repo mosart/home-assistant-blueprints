@@ -219,6 +219,7 @@ fixed scene, this one defers to whatever scene is already in use.
 | Situation | Behaviour |
 | --- | --- |
 | Motion, room dark | Depends on the current time slot's preset behaviour (below): restores the room's last known state (falling back to the last preset a remote applied, then to that slot's own preset) and pins its brightness to the slot's level, or always applies that slot's own preset instead, with or without a brightness override |
+| Motion, room already lit | Normally nothing — a preset set by hand is left alone. Exception: a slot behaviour of "Keep whichever preset is already showing, just fix its brightness" still pins the brightness to that slot's level, without touching the preset |
 | Motion while dimmed | Puts back exactly what was on before the dim |
 | No motion (30 min, adjustable) | Dims as a warning, then switches off |
 | Media playing or paused in the room | Postpones dimming and switching off |
@@ -319,6 +320,15 @@ that slot's own brightness input — see "The three time slots" below. The
 other two preset behaviour modes skip this chain entirely and always apply
 that slot's own preset instead.
 
+This same "keep whichever preset is already showing, just fix its
+brightness" mode also acts when motion arrives in a room that's **already
+lit** — a preset a remote, dashboard, or voice assistant just set by hand.
+The three fallbacks above don't run again in that case (there's nothing to
+restore; the preset is already showing), but its brightness is still pinned
+to the current slot's level, so a scene picked earlier in the evening still
+dims for the night instead of staying at whatever brightness it was set to.
+The other two preset behaviour modes never touch an already-lit room.
+
 #### The three time slots
 
 Each preset has its own boundary input directly below it:
@@ -355,12 +365,16 @@ Each of the three presets also has its own **brightness** input and
 - **Always use this preset, at its own brightness** — the same, but leaves
   the preset's own brightness untouched; nothing overrides it.
 - **Keep whichever preset is already showing, just fix its brightness** —
-  restores the room's memory (the three fallbacks above), then pins
-  whichever brightness that leaves the room at to the slot's brightness
-  input, without changing which preset/colour it is. This is the
-  Evening and Night default: a room that keeps its evening scene into the
-  night (by design — see the three fallbacks above) still gets dimmed down
-  for it, instead of staying at whatever brightness it was left at.
+  in a dark room, restores the room's memory (the three fallbacks above),
+  then pins whichever brightness that leaves the room at to the slot's
+  brightness input, without changing which preset/colour it is. In an
+  already-lit room, it does the same without the restore step: whatever
+  preset is showing (picked by hand, from a remote, dashboard, or voice
+  assistant) is left alone, only its brightness is pinned to the slot's
+  level. This is the Evening and Night default: a scene picked earlier in
+  the evening — by a Hue Tap Dial or Smart Button, say — still gets dimmed
+  down for the night instead of staying at whatever brightness it was set
+  to, without losing the scene itself.
 
 A preset picked for its colour doesn't necessarily read as dim once applied
 (Hue-style presets are mostly about colour, not brightness) — the
@@ -375,9 +389,16 @@ automatically.
 #### Always apply time-of-day preset on motion
 
 Off by default. The three fallbacks above, and the "already lit" check
-that normally makes motion in a lit room do nothing, both exist to defer to
-whatever's already on the lights — deliberately, since a light someone just
-set by hand shouldn't get overridden by a passing motion event.
+that normally makes motion in a lit room do nothing (beyond the brightness
+sync described above), both exist to defer to whatever's already on the
+lights — deliberately, since a light someone just set by hand shouldn't get
+overridden by a passing motion event.
+
+Note that this is a different fix from "keep whichever preset is already
+showing" above: that mode preserves the preset a remote or app set and only
+touches brightness, in both a dark and an already-lit room. This toggle
+instead throws the preset away too — use it only when the preset itself
+can't be trusted, not just its brightness.
 
 That assumption breaks for a light whose state changed for a reason outside
 Home Assistant's control — the case that prompted this toggle: a smart bulb

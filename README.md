@@ -222,7 +222,7 @@ fixed scene, this one defers to whatever scene is already in use.
 | Motion, room already lit | Normally nothing — a preset set by hand is left alone. Exception: a slot behaviour of "Keep whichever preset is already showing, just fix its brightness" still pins the brightness to that slot's level, without touching the preset |
 | Motion while dimmed | Puts back exactly what was on before the dim |
 | No motion (30 min, adjustable) | Dims as a warning, then switches off |
-| Media playing or paused in the room | Postpones dimming and switching off |
+| Media actively playing in the room | Postpones dimming and switching off. A paused player doesn't. |
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml)
 
@@ -432,9 +432,10 @@ drops a little further instead of being pushed up to a shared level right
 before it goes out. Returning motion during the dim window restarts the
 automation, which cancels the pending switch-off and restores the snapshot.
 
-Switching off is skipped while a media player in the room is playing or
-paused, checked again at the moment of switching off rather than only when the
-room first went quiet.
+Dimming and switching off are both skipped while a media player in the room
+is actively playing — checked once, when the room first goes quiet. A
+player that's merely paused doesn't hold this back; pause and leave, and the
+room still dims and switches off on schedule.
 
 ### Scheduled evening dimming
 

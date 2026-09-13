@@ -50,7 +50,9 @@ blueprint:
     more often than it would be right.
 
 
-    Media playing or paused in the room postpones dimming and switching off.
+    Media actively playing in the room postpones dimming and switching off.
+    A paused player doesn't — pausing something and leaving the room still
+    dims and switches off on schedule.
 
 
     Pick one or more areas and it takes both the motion/occupancy sensors and
@@ -1071,12 +1073,6 @@ actions:
           - condition: not
             conditions:
               - condition: media_player.is_playing
-                target:
-                  area_id: !input room
-                options:
-                  for: "00:00:00"
-                  behavior: any
-              - condition: media_player.is_paused
                 target:
                   area_id: !input room
                 options:

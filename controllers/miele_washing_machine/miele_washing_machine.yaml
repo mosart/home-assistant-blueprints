@@ -18,8 +18,11 @@ blueprint:
     behind the machine's own display that the Miele app itself has.
 
 
-    Tapping either notification opens the appliance's status entity more-info
-    view.
+    Notifications are plain title/message pushes with no tap target — the
+    modern `notify.send_message` action currently rejects any extra `data`
+    keys (including a tap-to-open target), a known Home Assistant core
+    limitation as of this writing. Open the appliance's status entity
+    yourself if you want to check on it.
   source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/miele_washing_machine/miele_washing_machine.yaml
   domain: automation
   homeassistant:
@@ -161,8 +164,6 @@ actions:
             data:
               title: !input started_title
               message: !input started_message
-              data:
-                entity_id: "{{ appliance_status }}"
       - alias: Wash cycle finished
         conditions:
           - condition: trigger
@@ -174,5 +175,3 @@ actions:
             data:
               title: !input finished_title
               message: !input finished_message
-              data:
-                entity_id: "{{ appliance_status }}"

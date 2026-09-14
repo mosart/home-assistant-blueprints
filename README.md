@@ -546,10 +546,17 @@ begins (including a delayed start). "Started" only fires on the
 transition to `in_use`, so a notification means the machine is genuinely
 washing, not just switched on or armed for later.
 
-#### Tapping the notification
+#### No tap target
 
-Both notifications tap-target the appliance's main status entity (via the
-Companion app's `entity_id` data key), opening its more-info view.
+Notifications are plain title/message pushes — there's no tap-to-open onto
+the appliance's status entity. The modern `notify.send_message` action
+currently rejects any extra `data` keys beyond `title`/`message`
+(including a tap-target `entity_id`), a known Home Assistant core
+limitation as of this writing: it only reaches phones through notify
+entities, not the legacy per-device `notify.mobile_app_...` service that
+still accepts that payload. If you want a tap target back, this blueprint
+would need to switch to that legacy per-phone service — see the camera
+blueprints above for that pattern.
 
 #### Notes on behaviour
 

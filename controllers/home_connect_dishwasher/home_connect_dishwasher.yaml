@@ -1,0 +1,163 @@
+blueprint:
+  name: "[mosart] Home Connect dishwasher start/finished notification"
+  description: >-
+    Notifies one or more phones when the dishwasher starts an actual wash
+    cycle, with the program and expected end time — and a second
+    notification when it's done.
+
+
+    "Started" fires on the transition to the Home Connect integration's
+    `run` status, not `ready`/`delayedstart` (a program is selected, or a
+    delayed start is pending, but it hasn't begun) — so this only notifies
+    once the dishwasher is actually running. "Finished" fires on the
+    transition to `finished`.
+
+
+    The Home Connect integration reflects the appliance's own cloud status,
+    not a local reading — expect the same lag behind the machine's own
+    display that the Home Connect app itself has.
+
+
+    Notifications are plain title/message pushes with no tap target — the
+    modern `notify.send_message` action currently rejects any extra `data`
+    keys (including a tap-to-open target), a known Home Assistant core
+    limitation as of this writing. Open the appliance's status entity
+    yourself if you want to check on it.
+  source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/home_connect_dishwasher/home_connect_dishwasher.yaml
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    appliance_status:
+      name: Appliance status sensor
+      description: >-
+        The dishwasher's own main status sensor (e.g. `sensor.vaatwasser_status`)
+        — its state is one of `inactive`/`ready`/`run`/`finished`/etc. Not
+        the "Actieve programma"/"Geselecteerd programma" select; that's
+        chosen separately below.
+      selector:
+        entity:
+          filter:
+            - integration: home_connect
+              domain: sensor
+              device_class: enum
+    program:
+      name: Program select
+      description: >-
+        The "Actieve programma" select entity, read when the dishwasher
+        starts. Home Connect models the active program as a select entity,
+        not a sensor.
+      selector:
+        entity:
+          filter:
+            - integration: home_connect
+              domain: select
+    end_time:
+      name: End time sensor
+      description: The "Programma eindtijd" sensor, read when the dishwasher starts.
+      selector:
+        entity:
+          filter:
+            - integration: home_connect
+              domain: sensor
+              device_class: timestamp
+    notify_targets:
+      name: Phones to notify
+      description: >-
+        One or more notify entities (the modern per-device notify entity
+        the Mobile App integration creates). No snapshot is attached here,
+        so — unlike this repo's camera-notification blueprints — there's no
+        need for the legacy `notify.mobile_app_...` service.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: notify
+    started_title:
+      name: "\"Started\" notification title"
+      default: "🍽️ Vaatwasser gestart"
+      selector:
+        text:
+    started_message:
+      name: "\"Started\" notification message"
+      description: >-
+        Templates are rendered. `{{ program_label }}` and `{{ end_time_label }}`
+        are computed from the entities above — see the README for exactly
+        how.
+      default: "Programma {{ program_label }}. Klaar rond {{ end_time_label }}."
+      selector:
+        text:
+    finished_title:
+      name: "\"Finished\" notification title"
+      default: "✅ Vaatwasser klaar"
+      selector:
+        text:
+    finished_message:
+      name: "\"Finished\" notification message"
+      default: "De vaatwasser is klaar. Ruim hem uit wanneer het uitkomt."
+      selector:
+        text:
+
+mode: single
+max_exceeded: silent
+
+variables:
+  appliance_status: !input appliance_status
+  program_entity: !input program
+  end_time_entity: !input end_time
+  # Home Connect's select options come as vendor-prefixed slugs (e.g.
+  # "dishcare_dishwasher_program_eco_50") — splitting on the last
+  # "_program_" strips that prefix down to the part worth reading, since
+  # Home Assistant only translates these to friendly text in its own
+  # frontend, not in a template.
+  program_label: >-
+    {%- set raw = states(program_entity) -%}
+    {%- if raw in ['unknown', 'unavailable'] -%}
+    onbekend programma
+    {%- else -%}
+    {{ raw.split('_program_')[-1] | replace('_', ' ') | capitalize }}
+    {%- endif -%}
+  end_time_label: >-
+    {%- set raw = states(end_time_entity) -%}
+    {%- if raw in ['unknown', 'unavailable'] -%}
+    onbekende eindtijd
+    {%- else -%}
+    {{ as_timestamp(raw) | timestamp_custom('%H:%M') }}
+    {%- endif -%}
+
+triggers:
+  - trigger: state
+    entity_id: !input appliance_status
+    to: run
+    id: started
+  - trigger: state
+    entity_id: !input appliance_status
+    to: finished
+    id: finished
+
+conditions: []
+
+actions:
+  - choose:
+      - alias: Wash cycle started
+        conditions:
+          - condition: trigger
+            id: started
+        sequence:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_targets
+            data:
+              title: !input started_title
+              message: !input started_message
+      - alias: Wash cycle finished
+        conditions:
+          - condition: trigger
+            id: finished
+        sequence:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_targets
+            data:
+              title: !input finished_title
+              message: !input finished_message

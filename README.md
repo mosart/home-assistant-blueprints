@@ -14,6 +14,7 @@ own setup and shared in case they are useful to someone else.
 | [Scheduled evening dimming](#scheduled-evening-dimming) | Two-step evening dim for a set of areas: lights above a threshold are dimmed to a target level at one time, then dimmed further at a second, later time. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_dimming%2Fscheduled_dimming.yaml) |
 | [UniFi Protect person-detection notification](#unifi-protect-person-detection-notification) | Notifies phones with a live snapshot when a UniFi Protect camera detects a person, but only while everyone selected is away. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Funifiprotect_person_detection%2Funifiprotect_person_detection.yaml) |
 | [Miele washing machine start/finished notification](#miele-washing-machine-startfinished-notification) | Notifies one or more phones when the washing machine starts an actual wash cycle, with the program, temperature and expected end time — and a second notification when it's done. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fmiele_washing_machine%2Fmiele_washing_machine.yaml) |
+| [Home Connect dishwasher start/finished notification](#home-connect-dishwasher-startfinished-notification) | Notifies one or more phones when the dishwasher starts an actual wash cycle, with the program and expected end time — and a second notification when it's done. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhome_connect_dishwasher%2Fhome_connect_dishwasher.yaml) |
 
 ### Hue Smart Button (ROM001) via ZHA
 
@@ -570,6 +571,61 @@ blueprints above for that pattern.
 - The Miele integration reflects Miele's own cloud status for the
   appliance, not a local reading — expect the same few-seconds lag behind
   the machine's own display that the Miele app itself has.
+
+### Home Connect dishwasher start/finished notification
+
+Notifies one or more phones when the dishwasher starts an actual wash
+cycle — with the program and expected end time — and again when it's done.
+A separate blueprint from the Miele one above: Home Connect models its
+appliance status, program and end time differently enough (different enum
+values, the program as a `select` entity rather than a `sensor`, no
+separate temperature reading) that adding it to the Miele blueprint would
+mean bolting a second integration onto a single-integration blueprint —
+this repo's convention is a fork instead, so it's its own blueprint here.
+
+| Situation | Behaviour |
+| --- | --- |
+| Appliance status sensor transitions to `run` | Notifies every phone listed: title + message with program and end time |
+| Appliance status sensor transitions to `finished` | Notifies every phone listed: title + message |
+| Sensor sits at `inactive`, `ready` or `delayedstart` | Nothing — the dishwasher is idle, a program is armed, or a delayed start is pending, but it isn't running yet |
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhome_connect_dishwasher%2Fhome_connect_dishwasher.yaml)
+
+#### Requirements
+
+- The [`home_connect`](https://www.home-assistant.io/integrations/home_connect/)
+  core integration, with the appliance's main status sensor exposed (an
+  `enum` sensor whose state is one of `inactive`/`ready`/`run`/`finished`/
+  etc.), plus its active-program select and end-time sensor.
+- One or more modern notify entities (`notify.<device>`, the kind the
+  Mobile App integration creates per device).
+
+#### Why `run`, not `ready`
+
+The status sensor goes through several states before an actual wash:
+`ready` (a program is selected but not started) or `delayedstart` (a
+delayed start has been set but hasn't begun). "Started" only fires on the
+transition to `run`, so a notification means the dishwasher is genuinely
+running, not just armed or waiting for a delayed start.
+
+#### No tap target
+
+Same limitation as the Miele blueprint above: `notify.send_message`
+currently rejects any extra `data` keys, so there's no tap-to-open onto
+the appliance's status entity.
+
+#### Notes on behaviour
+
+- The program is read once, at the moment the "started" notification
+  fires — later changes don't retroactively edit an already-sent
+  notification.
+- Home Connect's program options come as vendor-prefixed slugs (e.g.
+  `dishcare_dishwasher_program_eco_50`); the blueprint strips everything
+  up to the last `_program_` and humanizes what's left (`Eco 50`) rather
+  than hand-maintaining a translation table for every program.
+- There's no separate temperature reading for this integration — the
+  program name already carries it (`Eco 50`, `Intensiv 70`), unlike the
+  Miele washing machine blueprint's dedicated temperature sensor.
 
 ## Why these are self-contained
 

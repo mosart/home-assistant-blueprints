@@ -1,0 +1,185 @@
+blueprint:
+  name: "[mosart] Scheduled switch with motion boost"
+  description: >-
+    An on/off switch (or light) that follows two fixed schedule windows —
+    on from a clock time until sunrise, and on from sunset until a second
+    clock time — with a temporary motion-triggered boost outside of those
+    windows.
+
+
+    - **Morning window**: on at the time set below, off at sunrise.
+
+    - **Evening window**: on at sunset, off at the time set below.
+
+    - **Motion**: turns it on immediately; if that happens outside both
+    windows, it switches off again after being quiet for the duration set
+    below. Motion inside a window changes nothing — the window is already
+    keeping it on, and switching off on a quiet spell there would cut the
+    window short.
+
+
+    Built for a driveway light behind a Zigbee inline relay (no dimming, no
+    scene memory — just on/off), but works for any switch or light: this
+    doesn't derive from a fixed device, only from whichever entity and
+    area you pick below.
+  source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/rooms/scheduled_switch_with_motion/scheduled_switch_with_motion.yaml
+  domain: automation
+  homeassistant:
+    min_version: 2026.7.0
+  input:
+    target:
+      name: Switch (or light)
+      description: The entity this automation turns on and off.
+      selector:
+        entity:
+          filter:
+            - domain: switch
+            - domain: light
+    room:
+      name: Area(s) for motion
+      description: >-
+        Motion or occupancy in any of these areas triggers the boost.
+        Reacts to whichever sensor type the area has (motion, occupancy,
+        or both).
+      selector:
+        area:
+          multiple: true
+    morning_on_time:
+      name: Morning window — on at
+      default: "06:30:00"
+      selector:
+        time:
+    evening_off_time:
+      name: Evening window — off at
+      default: "23:00:00"
+      selector:
+        time:
+    motion_on_duration:
+      name: Motion boost — off after this long without motion
+      description: Only applies to a motion boost outside the two windows above.
+      default:
+        hours: 0
+        minutes: 10
+        seconds: 0
+      selector:
+        duration:
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  target: !input target
+
+triggers:
+  - trigger: time
+    at: !input morning_on_time
+    id: morning_on
+  - trigger: sun
+    event: sunrise
+    id: morning_off
+  - trigger: sun
+    event: sunset
+    id: evening_on
+  - trigger: time
+    at: !input evening_off_time
+    id: evening_off
+  - trigger: motion.detected
+    target:
+      area_id: !input room
+    options:
+      for: "00:00:00"
+      behavior: each
+    id: motion
+  - trigger: occupancy.detected
+    target:
+      area_id: !input room
+    options:
+      for: "00:00:00"
+      behavior: each
+    id: motion
+  - trigger: motion.cleared
+    target:
+      area_id: !input room
+    options:
+      for: !input motion_on_duration
+      behavior: each
+    id: no_motion
+  - trigger: occupancy.cleared
+    target:
+      area_id: !input room
+    options:
+      for: !input motion_on_duration
+      behavior: each
+    id: no_motion
+
+conditions: []
+
+actions:
+  - choose:
+      - alias: Morning window starts
+        conditions:
+          - condition: trigger
+            id: morning_on
+        sequence:
+          - action: homeassistant.turn_on
+            target:
+              entity_id: "{{ target }}"
+      - alias: Morning window ends at sunrise
+        conditions:
+          - condition: trigger
+            id: morning_off
+        sequence:
+          - action: homeassistant.turn_off
+            target:
+              entity_id: "{{ target }}"
+      - alias: Evening window starts at sunset
+        conditions:
+          - condition: trigger
+            id: evening_on
+        sequence:
+          - action: homeassistant.turn_on
+            target:
+              entity_id: "{{ target }}"
+      - alias: Evening window ends
+        conditions:
+          - condition: trigger
+            id: evening_off
+        sequence:
+          - action: homeassistant.turn_off
+            target:
+              entity_id: "{{ target }}"
+      - alias: Motion — boost on
+        conditions:
+          - condition: trigger
+            id: motion
+        sequence:
+          - action: homeassistant.turn_on
+            target:
+              entity_id: "{{ target }}"
+      - alias: Motion — boost off after quiet, unless a window is covering it
+        conditions:
+          - condition: trigger
+            id: no_motion
+        sequence:
+          - condition: not
+            conditions:
+              - alias: A schedule window is currently active
+                condition: or
+                conditions:
+                  - alias: Morning window (after the on-time, before sunrise)
+                    condition: and
+                    conditions:
+                      - condition: time
+                        after: !input morning_on_time
+                      - condition: sun
+                        before: sunrise
+                  - alias: Evening window (after sunset, before the off-time)
+                    condition: and
+                    conditions:
+                      - condition: sun
+                        after: sunset
+                      - condition: time
+                        before: !input evening_off_time
+          - action: homeassistant.turn_off
+            target:
+              entity_id: "{{ target }}"

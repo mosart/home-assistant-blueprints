@@ -12,6 +12,7 @@ own setup and shared in case they are useful to someone else.
 | [Presence lighting with scene memory](#presence-lighting-with-scene-memory) | Presence lighting for one or more areas: motion or occupancy restores the last scene, or dims/switches off after being quiet, deferring to whatever scene is already in use instead of forcing a fixed one. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml) |
 | [Sonoff Motion Sensor (SNZB-03P) camera-snapshot notification](#sonoff-motion-sensor-snzb-03p-camera-snapshot-notification) | Notifies one or more phones when the sensor detects activity, with a live camera snapshot attached. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fsonoff_motion_snzb03p%2Fsonoff_motion_snzb03p.yaml) |
 | [Scheduled evening dimming](#scheduled-evening-dimming) | Two-step evening dim for a set of areas: lights above a threshold are dimmed to a target level at one time, then dimmed further at a second, later time. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_dimming%2Fscheduled_dimming.yaml) |
+| [Scheduled switch with motion boost](#scheduled-switch-with-motion-boost) | An on/off switch or light that follows a morning and an evening schedule window (clock time to sunrise, sunset to clock time), with a temporary motion-triggered boost outside of those windows. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_switch_with_motion%2Fscheduled_switch_with_motion.yaml) |
 | [UniFi Protect person-detection notification](#unifi-protect-person-detection-notification) | Notifies phones with a live snapshot when a UniFi Protect camera detects a person, but only while everyone selected is away. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Funifiprotect_person_detection%2Funifiprotect_person_detection.yaml) |
 | [Miele washing machine start/finished notification](#miele-washing-machine-startfinished-notification) | Notifies one or more phones when the washing machine starts an actual wash cycle, with the program, temperature and expected end time — and a second notification when it's done. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fmiele_washing_machine%2Fmiele_washing_machine.yaml) |
 | [Home Connect dishwasher start/finished notification](#home-connect-dishwasher-startfinished-notification) | Notifies one or more phones when the dishwasher starts an actual wash cycle, with the program and expected end time — and a second notification when it's done. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhome_connect_dishwasher%2Fhome_connect_dishwasher.yaml) |
@@ -469,6 +470,51 @@ described under "What it controls" for presence lighting.
 Only two steps are offered, not an arbitrary schedule — pick times,
 thresholds, and targets that fit your evening. If you want more than two
 dims, add a second instance of this blueprint with its own times.
+
+### Scheduled switch with motion boost
+
+A plain on/off switch or light with no dimming and no scene memory — two
+fixed schedule windows, plus a motion boost outside of them.
+
+| Situation | Behaviour |
+| --- | --- |
+| Morning window on-time reached | Turns on |
+| Sunrise | Turns off |
+| Sunset | Turns on |
+| Evening window off-time reached | Turns off |
+| Motion, outside both windows | Turns on, then off again after being quiet for the boost duration |
+| Motion, inside either window | Nothing — the window is already keeping it on |
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_switch_with_motion%2Fscheduled_switch_with_motion.yaml)
+
+#### What it controls
+
+**Switch (or light)** is a single entity — this blueprint doesn't dim or
+apply scenes, so there's no `scene_presets` dependency and no per-room
+helper to create, unlike presence lighting above. **Area(s) for motion**
+works the same way it does in presence lighting: motion or occupancy in
+any of the areas selected triggers the boost, whichever sensor type each
+area has.
+
+#### Why motion doesn't turn it off inside a window
+
+The two schedule windows and the motion boost share one on/off switch, so
+they have to agree on when it's safe to turn off. Motion always turns the
+target on immediately, but the "turn off after being quiet" half of the
+boost only fires if neither window is currently active — otherwise a quiet
+spell during, say, the evening window would cut that window short, even
+though it isn't supposed to end until the off-time.
+
+#### Notes on behaviour
+
+- The morning and evening windows are fixed to sunrise/sunset for the
+  transitions this blueprint doesn't take a clock-time input for — there's
+  no toggle to pin those to fixed times instead, unlike the sunrise/sunset
+  toggles in presence lighting. Add a second instance, or ask for the
+  toggle to be added, if that's needed.
+- Built for a driveway light behind a Zigbee inline relay (no dimming, no
+  power-on-state quirks to work around), but the blueprint itself doesn't
+  assume that hardware — any switch or light entity works.
 
 ### UniFi Protect person-detection notification
 

@@ -7,11 +7,16 @@ blueprint:
     windows.
 
 
-    - **Morning window**: on at the time set below, off at sunrise.
+    - **Morning window**: on at the time set below, off at sunrise — unless
+    the sun already rose before that time (a long summer day), in which
+    case the on-time does nothing, so this never leaves it on for the rest
+    of the day.
 
     - **Evening window**: on at sunset, off at the time set below.
 
-    - **Motion**: turns it on immediately; if that happens outside both
+    - **Motion**: turns it on immediately, but only while it's actually
+    dark (before sunrise or after sunset) — a driveway light doesn't need
+    a motion boost in broad daylight. If that happens outside both
     windows, it switches off again after being quiet for the duration set
     below. Motion inside a window changes nothing — the window is already
     keeping it on, and switching off on a quiet spell there would cut the
@@ -121,6 +126,9 @@ actions:
           - condition: trigger
             id: morning_on
         sequence:
+          - alias: Only if the sun hasn't already come up by this time
+            condition: sun
+            before: sunrise
           - action: homeassistant.turn_on
             target:
               entity_id: "{{ target }}"
@@ -148,11 +156,18 @@ actions:
           - action: homeassistant.turn_off
             target:
               entity_id: "{{ target }}"
-      - alias: Motion — boost on
+      - alias: Motion — boost on, but only while it's actually dark
         conditions:
           - condition: trigger
             id: motion
         sequence:
+          - alias: Daylight doesn't need the boost — skip if the sun is up
+            condition: or
+            conditions:
+              - condition: sun
+                before: sunrise
+              - condition: sun
+                after: sunset
           - action: homeassistant.turn_on
             target:
               entity_id: "{{ target }}"

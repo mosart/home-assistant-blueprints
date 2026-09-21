@@ -478,11 +478,13 @@ fixed schedule windows, plus a motion boost outside of them.
 
 | Situation | Behaviour |
 | --- | --- |
-| Morning window on-time reached | Turns on |
+| Morning window on-time reached, sun not yet up | Turns on |
+| Morning window on-time reached, sun already up (long summer day) | Nothing — avoids leaving it on for the rest of the day with no sunrise event left to turn it off |
 | Sunrise | Turns off |
 | Sunset | Turns on |
 | Evening window off-time reached | Turns off |
-| Motion, outside both windows | Turns on, then off again after being quiet for the boost duration |
+| Motion, dark out, outside both windows | Turns on, then off again after being quiet for the boost duration |
+| Motion, broad daylight | Nothing — a motion boost achieves nothing when it's already light outside |
 | Motion, inside either window | Nothing — the window is already keeping it on |
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_switch_with_motion%2Fscheduled_switch_with_motion.yaml)
@@ -505,6 +507,16 @@ boost only fires if neither window is currently active — otherwise a quiet
 spell during, say, the evening window would cut that window short, even
 though it isn't supposed to end until the off-time.
 
+#### Why the morning on-time checks the sun first
+
+A fixed on-time paired with a sunrise off-trigger only works as a pair
+when the on-time actually comes before sunrise. On a long summer day
+sunrise can land before the on-time (e.g. sunrise at 05:30, on-time at
+06:30) — without a check, the on-time would still fire and switch on, but
+that day's sunrise event has already passed, so nothing would ever turn
+it back off until sunset. The on-time is therefore gated on `sun, before:
+sunrise`: if the sun's already up, it does nothing.
+
 #### Notes on behaviour
 
 - The morning and evening windows are fixed to sunrise/sunset for the
@@ -512,6 +524,10 @@ though it isn't supposed to end until the off-time.
   no toggle to pin those to fixed times instead, unlike the sunrise/sunset
   toggles in presence lighting. Add a second instance, or ask for the
   toggle to be added, if that's needed.
+- The motion boost only fires while it's actually dark (before sunrise or
+  after sunset) — broad daylight is excluded even outside the two
+  schedule windows, since a driveway light doesn't need to react to motion
+  when the sun is already doing the job.
 - Built for a driveway light behind a Zigbee inline relay (no dimming, no
   power-on-state quirks to work around), but the blueprint itself doesn't
   assume that hardware — any switch or light entity works.

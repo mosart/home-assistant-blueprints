@@ -213,6 +213,12 @@ that triggered it. The attached snapshot is a live image taken when the
 notification is sent, not a frame pulled from that exact moment; the
 timeline is how to see the actual detection.
 
+The message includes the exact date and time of the trigger (e.g.
+`25-09-2026 23:59:49`) via a `{{ trigger_time }}` template variable, so
+that exact moment can be found in the camera's own recorded timeline — a
+static snapshot alone doesn't always show who or what set it off,
+especially at night.
+
 ### Presence lighting with scene memory
 
 Presence lighting for one room. Where a motion automation normally forces one

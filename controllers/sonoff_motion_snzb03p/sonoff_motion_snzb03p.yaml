@@ -17,6 +17,12 @@ blueprint:
     Tapping the notification opens the camera entity's more-info view —
     live feed plus, for a camera with recorded history, its timeline to
     scrub back to the moment that triggered it.
+
+
+    The message includes the exact date and time of the trigger, since a
+    static snapshot alone doesn't always show who or what set it off —
+    useful for finding the same moment in the camera's own recorded
+    timeline.
   source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/controllers/sonoff_motion_snzb03p/sonoff_motion_snzb03p.yaml
   domain: automation
   homeassistant:
@@ -60,7 +66,10 @@ blueprint:
         text:
     message:
       name: Notification message
-      default: "Jippie, je hebt post! Kijk in de brievenbus wat er in ligt."
+      description: >-
+        Templates are rendered. `{{ trigger_time }}` is the exact date and
+        time the sensor triggered, e.g. `25-09-2026 23:59:49`.
+      default: "Jippie, je hebt post! Kijk in de brievenbus wat er in ligt. ({{ trigger_time }})"
       selector:
         text:
 
@@ -69,6 +78,11 @@ max_exceeded: silent
 
 variables:
   camera: !input camera
+  # now() at the moment the action runs, not the trigger event itself — but
+  # with mode: single and no delay before this point, the two are the same
+  # to the second. Full date+time (not just a clock time) avoids ambiguity
+  # around midnight, when "23:59" and "00:01" are on different days.
+  trigger_time: "{{ now().strftime('%d-%m-%Y %H:%M:%S') }}"
 
 triggers:
   - trigger: occupancy.detected

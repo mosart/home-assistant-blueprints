@@ -725,7 +725,10 @@ variables:
     {{ ('slot_only' if day_own_brightness else 'override_slot') if day_preset_source == 'time_slot'
        else ('button_own' if day_own_brightness else 'button_slot') if day_preset_source == 'button'
        else ('keep_own' if day_own_brightness else 'override_current') }}
-  day_brightness: "{{ (day_brightness_pct | float) * 255 / 100 }}"
+  # round + int: light.turn_on/scene_presets.apply_preset reject a float
+  # brightness outright ("expected int"), and the pct->255 scaling above
+  # always produces one (e.g. 100% -> 255.0), even from an integer input.
+  day_brightness: "{{ ((day_brightness_pct | float) * 255 / 100) | round | int }}"
   evening_brightness_pct: !input evening_brightness_pct
   evening_preset_source: !input evening_preset_source
   evening_own_brightness: !input evening_own_brightness
@@ -733,7 +736,7 @@ variables:
     {{ ('slot_only' if evening_own_brightness else 'override_slot') if evening_preset_source == 'time_slot'
        else ('button_own' if evening_own_brightness else 'button_slot') if evening_preset_source == 'button'
        else ('keep_own' if evening_own_brightness else 'override_current') }}
-  evening_brightness: "{{ (evening_brightness_pct | float) * 255 / 100 }}"
+  evening_brightness: "{{ ((evening_brightness_pct | float) * 255 / 100) | round | int }}"
   night_brightness_pct: !input night_brightness_pct
   night_preset_source: !input night_preset_source
   night_own_brightness: !input night_own_brightness
@@ -741,7 +744,7 @@ variables:
     {{ ('slot_only' if night_own_brightness else 'override_slot') if night_preset_source == 'time_slot'
        else ('button_own' if night_own_brightness else 'button_slot') if night_preset_source == 'button'
        else ('keep_own' if night_own_brightness else 'override_current') }}
-  night_brightness: "{{ (night_brightness_pct | float) * 255 / 100 }}"
+  night_brightness: "{{ ((night_brightness_pct | float) * 255 / 100) | round | int }}"
   day_start_use_sunrise: !input day_start_use_sunrise
   day_start_apply_immediately: !input day_start_apply_immediately
   evening_start_use_sunset: !input evening_start_use_sunset

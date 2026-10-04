@@ -6,37 +6,36 @@ blueprint:
 
 
     - **Motion while the room is dark**: each time slot (Daytime, Evening,
-    Night) has its own **preset behaviour** setting, built from two
-    independent choices — **which preset** (the time-of-day preset below;
-    the last **button preset**, i.e. the last preset a paired remote
-    applied; or **keep current light settings**, a snapshot of whatever the
-    lights were already doing, colour and all, independent of any preset) and
-    **which brightness** (that source's own, or this slot's brightness
-    input) — six combinations in total. Button preset and keep-current are
-    two deliberately separate memories: a button preset is a preset
-    identity — read from `input_text.<room>_laatste_preset`, the same
-    helper name the `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` and
-    `[mosart] Hue Smart Button (ROM001) via ZHA` blueprints derive from
-    their own **Room** input, so nothing needs wiring by hand — while
-    keep-current is a raw attribute snapshot taken the moment the room last
-    went quiet, before any dimming; it also catches a manual colour-picker
-    tweak a preset was never told about, and it is never the dimmed or
-    switched-off state. Either falls back to the time-of-day preset once
-    there's nothing to restore (no button preset chosen yet, or no snapshot
-    taken yet — a room with no remote simply never has a button preset to
-    fall back on). Each preset's time boundary sits next to it below —
-    morning and evening can each use a fixed clock time or the sun's actual
-    sunrise/sunset.
+    Night) has its own **preset on motion** setting — which preset to
+    apply: the time slot preset below; the last **button preset**, i.e. the
+    last preset a paired remote applied; or the **last light settings**, a
+    snapshot of whatever the lights were already doing, colour and all,
+    independent of any preset — plus its own **brightness behaviour**
+    toggle, "Always use this slot's brightness" (default) or "Use preset's
+    own brightness". Button preset and last-light-settings are two
+    deliberately separate memories: a button preset is a preset identity —
+    read from `input_text.<room>_laatste_preset`, the same helper name the
+    `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` and `[mosart] Hue Smart
+    Button (ROM001) via ZHA` blueprints derive from their own **Room**
+    input, so nothing needs wiring by hand — while last-light-settings is a
+    raw attribute snapshot taken the moment the room last went quiet, before
+    any dimming; it also catches a manual colour-picker tweak a preset was
+    never told about, and it is never the dimmed or switched-off state.
+    Either falls back to the time slot preset once there's nothing to
+    restore (no button preset chosen yet, or no snapshot taken yet — a room
+    with no remote simply never has a button preset to fall back on). Each
+    preset's time boundary sits next to it below — morning and evening can
+    each use a fixed clock time or the sun's actual sunrise/sunset.
 
     - **Motion while already lit**: normally does nothing — a preset someone
     just set by hand (remote, dashboard, voice assistant) is left alone.
-    Exception: a slot whose **preset behaviour** keeps current light
-    settings at this slot's brightness still pins the brightness, without
-    touching what's showing — so a scene picked earlier in the evening
-    still dims for the night instead of staying at whatever brightness it
-    was set to. Every other combination — including keep-current at its own
-    brightness — leaves an already-lit room alone; only that one
-    combination touches it.
+    Exception: a slot whose **preset on motion** is "Last light settings"
+    combined with "Always use this slot's brightness" still pins the
+    brightness, without touching what's showing — so a scene picked earlier
+    in the evening still dims for the night instead of staying at whatever
+    brightness it was set to. Every other combination — including "Last
+    light settings" at its own brightness — leaves an already-lit room
+    alone; only that one combination touches it.
 
     - **Motion while dimmed**: puts back exactly what was on before the dim.
 
@@ -133,27 +132,28 @@ blueprint:
         force_preset_on_motion:
           name: Always apply time-of-day preset on motion
           description: >-
-            Off by default: motion follows the memory behaviour described above
-            (put back the snapshot from before a dim, then whichever of button
-            preset / kept light settings / time-of-day preset this slot's
-            behaviour calls for) — and does nothing at all if the light already
-            appears to be on, unless that behaviour is "keep current light
-            settings" at this slot's brightness.
+            Off by default: motion follows the behaviour described above (put
+            back the snapshot from before a dim, then whichever preset this
+            slot's "preset on motion" setting calls for) — and does nothing
+            at all if the light already appears to be on, unless that setting
+            is "Last light settings" combined with "Always use this slot's
+            brightness".
 
             Turn this on to skip all of that. Every motion event then applies
             the Daytime/Evening/Night preset below for whatever slot it
-            currently is, unconditionally — including when the light is already
-            on, and ignoring any button preset or kept light settings — still
-            forcing its brightness input too unless this slot's **preset
-            behaviour** is one of the "at its own brightness" options (those
-            behave the same here as they always do; there is no existing state
-            left to keep, so a "keep current light settings" behaviour forces
-            the brightness exactly like its time-of-day counterpart). Use this
-            for a room where the light can be switched or power-cycled outside
-            Home Assistant's control (a physical wall switch on a smart bulb's
-            power is the common case: the bulb comes back at its own default
-            brightness, which this blueprint would otherwise mistake for an
-            intentional state and leave alone).
+            currently is, unconditionally — including when the light is
+            already on, and ignoring any button preset or kept light
+            settings — still forcing its brightness input too unless this
+            slot's **brightness behaviour** is "Use preset's own brightness"
+            (that option behaves the same here as it always does; there is
+            no existing state left to keep, so even a "Last light settings"
+            source forces the brightness here exactly like the other two
+            sources do). Use this for a room where the light can be switched
+            or power-cycled outside Home Assistant's control (a physical
+            wall switch on a smart bulb's power is the common case: the
+            bulb comes back at its own default brightness, which this
+            blueprint would otherwise mistake for an intentional state and
+            leave alone).
           default: false
           selector:
             boolean: {}
@@ -476,61 +476,61 @@ blueprint:
               unit_of_measurement: "%"
               mode: slider
               step: 1
-        day_brightness_mode:
-          name: Daytime preset behaviour
+        day_preset_source:
+          name: Daytime preset on motion
           description: >-
-            What motion does during the daytime slot — one of six
-            combinations of **which preset** and **which brightness**:
+            Which preset motion applies during the daytime slot, in a dark
+            room:
 
-            - **Time-of-day preset, at its own brightness**: applies the
-            Daytime preset below, unchanged from whatever brightness it
-            carries.
+            - **Time slot preset** (default): always the Daytime preset
+            below — mornings reliably reset to a fixed look rather than pick
+            up whatever mood was left over from the night before.
 
-            - **Time-of-day preset, at the brightness above** (default):
-            the same, but pinned to the brightness set above instead —
-            mornings reliably reset to a fixed look rather than pick up
-            whatever brightness the preset happens to carry.
+            - **Button preset (or time slot preset if none)**: the last
+            preset a paired remote picked, falling back to the Daytime
+            preset if nothing's been picked yet, or once a new day has
+            forgotten it (see "Apply Daytime preset immediately each
+            morning" below).
 
-            - **Button preset, at its own/the slot's brightness**: in a dark
-            room, applies the last preset a paired remote picked (falling
-            back to the Daytime preset if nothing's been picked, or once a
-            new day has forgotten it — see "Apply Daytime preset immediately
-            each morning" below), at either its own brightness or the one set
-            above.
-
-            - **Keep current light settings, at their own/the slot's
-            brightness**: in a dark room, restores exactly how the lights
-            stood the moment the room last went quiet — colour and all,
-            whether that came from a preset, a remote, or a manual tweak
-            none of this blueprint's own memory would otherwise catch —
+            - **Last light settings (or time slot preset if none)**: exactly
+            how the lights stood the moment the room last went quiet —
+            colour and all, whether that came from a preset, a remote, or a
+            manual tweak the other two sources were never told about —
             falling back to the Daytime preset if nothing's been captured
-            yet, then applying either that snapshot's own brightness or the
-            one set above. In a room that's already lit, the two
-            own-brightness combinations above (button preset and keep
-            current light settings) leave it alone, same as the time-of-day
-            ones — a preset just set by hand from a remote, dashboard, or
-            voice assistant isn't touched. Only **keep current light
-            settings, at the slot's brightness** also acts on an already-lit
-            room: it leaves the preset alone but still pins the brightness
-            to the level set above, so it still dims for the slot instead of
-            staying at whatever brightness it was set to.
-          default: override_slot
-          selector: &brightness_mode_selector
+            yet.
+
+            In a room that's already lit, "Button preset" and "Time slot
+            preset" leave it alone — a preset just set by hand from a
+            remote, dashboard, or voice assistant isn't touched. "Last light
+            settings" is the exception: with "Always use this slot's
+            brightness" below, it still pins the brightness without
+            touching what's showing, so a scene picked earlier in the
+            evening still dims for the night instead of staying at whatever
+            brightness it was set to.
+          default: time_slot
+          selector: &preset_source_selector
             select:
               mode: dropdown
               options:
-                - label: "Time-of-day preset, at its own brightness"
-                  value: slot_only
-                - label: "Time-of-day preset, at the brightness above"
-                  value: override_slot
-                - label: "Button preset, at its own brightness"
-                  value: button_own
-                - label: "Button preset, at the brightness above"
-                  value: button_slot
-                - label: "Keep current light settings, at their own brightness"
-                  value: keep_own
-                - label: "Keep current light settings, at the brightness above"
-                  value: override_current
+                - label: "Time slot preset"
+                  value: time_slot
+                - label: "Button preset (or time slot preset if none)"
+                  value: button
+                - label: "Last light settings (or time slot preset if none)"
+                  value: last
+        day_own_brightness:
+          name: Daytime preset brightness behaviour
+          description: >-
+            Off by default ("Always use this slot's brightness"): motion
+            pins brightness to the level set above, whichever preset source
+            above provided the colour/scene — mornings reset to a fixed
+            brightness regardless of what that source carries. Turn on
+            ("Use preset's own brightness") to leave whichever preset gets
+            applied at its own brightness instead; the level set above then
+            goes unused for motion in this slot.
+          default: false
+          selector: &own_brightness_selector
+            boolean: {}
         day_start:
           name: Morning begins
           description: >-
@@ -579,16 +579,23 @@ blueprint:
             calls for it. Defaults to 50%.
           default: 50
           selector: *brightness_pct_selector
-        evening_brightness_mode:
-          name: Evening preset behaviour
+        evening_preset_source:
+          name: Evening preset on motion
           description: >-
-            Same six combinations as the Daytime preset above, applied to
-            the evening slot — see its description for what each one does.
-            Defaults to "Keep current light settings, at the brightness
-            above", so a scene picked during the day still dims down once
-            evening starts.
-          default: override_current
-          selector: *brightness_mode_selector
+            Same three sources as the Daytime slot above — see its
+            description for what each one does. Defaults to "Last light
+            settings", so a scene picked during the day carries into the
+            evening instead of being overridden.
+          default: last
+          selector: *preset_source_selector
+        evening_own_brightness:
+          name: Evening preset brightness behaviour
+          description: >-
+            Same choice as the Daytime slot above — see its description.
+            Off by default: the evening slot dims whatever's showing to the
+            brightness set above instead of leaving it at the daytime level.
+          default: false
+          selector: *own_brightness_selector
         evening_start:
           name: Evening begins
           description: >-
@@ -626,16 +633,23 @@ blueprint:
             independently of whichever preset is selected above.
           default: 3
           selector: *brightness_pct_selector
-        night_brightness_mode:
-          name: Night preset behaviour
+        night_preset_source:
+          name: Night preset on motion
           description: >-
-            Same six combinations as the Daytime preset above, applied to the
-            night slot — see its description for what each one does. Defaults
-            to "Keep current light settings, at the brightness above", so a
-            room that's kept its evening scene into the night still gets
-            dimmed down for it.
-          default: override_current
-          selector: *brightness_mode_selector
+            Same three sources as the Daytime slot above — see its
+            description for what each one does. Defaults to "Last light
+            settings", so a room that's kept its evening scene into the
+            night still shows it, just dimmed.
+          default: last
+          selector: *preset_source_selector
+        night_own_brightness:
+          name: Night preset brightness behaviour
+          description: >-
+            Same choice as the Daytime slot above — see its description.
+            Off by default: the night slot dims whatever's showing to the
+            brightness set above instead of leaving it at the evening level.
+          default: false
+          selector: *own_brightness_selector
         night_start:
           name: Night begins
           description: Start of the night slot.
@@ -701,13 +715,32 @@ variables:
   lights: !input lights
   force_preset_on_motion: !input force_preset_on_motion
   day_brightness_pct: !input day_brightness_pct
-  day_brightness_mode: !input day_brightness_mode
+  day_preset_source: !input day_preset_source
+  day_own_brightness: !input day_own_brightness
+  # Internal mode string the actions below branch on — kept as-is so that
+  # logic only has to understand one string per slot instead of combining
+  # a preset-source select with a brightness toggle at every check. See the
+  # Daytime preset's two inputs above for what each half of the name means.
+  day_brightness_mode: >-
+    {{ ('slot_only' if day_own_brightness else 'override_slot') if day_preset_source == 'time_slot'
+       else ('button_own' if day_own_brightness else 'button_slot') if day_preset_source == 'button'
+       else ('keep_own' if day_own_brightness else 'override_current') }}
   day_brightness: "{{ (day_brightness_pct | float) * 255 / 100 }}"
   evening_brightness_pct: !input evening_brightness_pct
-  evening_brightness_mode: !input evening_brightness_mode
+  evening_preset_source: !input evening_preset_source
+  evening_own_brightness: !input evening_own_brightness
+  evening_brightness_mode: >-
+    {{ ('slot_only' if evening_own_brightness else 'override_slot') if evening_preset_source == 'time_slot'
+       else ('button_own' if evening_own_brightness else 'button_slot') if evening_preset_source == 'button'
+       else ('keep_own' if evening_own_brightness else 'override_current') }}
   evening_brightness: "{{ (evening_brightness_pct | float) * 255 / 100 }}"
   night_brightness_pct: !input night_brightness_pct
-  night_brightness_mode: !input night_brightness_mode
+  night_preset_source: !input night_preset_source
+  night_own_brightness: !input night_own_brightness
+  night_brightness_mode: >-
+    {{ ('slot_only' if night_own_brightness else 'override_slot') if night_preset_source == 'time_slot'
+       else ('button_own' if night_own_brightness else 'button_slot') if night_preset_source == 'button'
+       else ('keep_own' if night_own_brightness else 'override_current') }}
   night_brightness: "{{ (night_brightness_pct | float) * 255 / 100 }}"
   day_start_use_sunrise: !input day_start_use_sunrise
   day_start_apply_immediately: !input day_start_apply_immediately

@@ -714,6 +714,13 @@ variables:
   room: !input room
   lights: !input lights
   force_preset_on_motion: !input force_preset_on_motion
+  # Exposed as plain variables (rather than only inline `!input` at each
+  # call site) so the action `data:` blocks below can build their whole
+  # service-call dict in one Jinja expression — see the brightness
+  # comment further down for why that's necessary instead of `omit`.
+  preset_night: !input preset_night
+  preset_evening: !input preset_evening
+  preset_day: !input preset_day
   day_brightness_pct: !input day_brightness_pct
   day_preset_source: !input day_preset_source
   day_own_brightness: !input day_own_brightness
@@ -728,6 +735,18 @@ variables:
   # round + int: light.turn_on/scene_presets.apply_preset reject a float
   # brightness outright ("expected int"), and the pct->255 scaling above
   # always produces one (e.g. 100% -> 255.0), even from an integer input.
+  #
+  # Below, whenever a preset is applied and the brightness key must be
+  # conditionally left out entirely (so the preset's own brightness wins),
+  # the scene_presets.apply_preset actions build their whole `data:` as one
+  # `{{ ... | combine(...) }}` expression instead of templating a bare
+  # `brightness: >- {{ omit if ... else ... }}` field. The `omit` sentinel
+  # does not reliably drop the key this way in practice — it has been
+  # observed rendering as an empty string instead (still present as
+  # `brightness: ""`, which then fails the same "expected int" validation
+  # this comment already warns about) — so `combine` is used instead,
+  # since a dict filter is explicit about which keys exist rather than
+  # relying on a template sentinel to vanish one.
   day_brightness: "{{ ((day_brightness_pct | float) * 255 / 100) | round | int }}"
   evening_brightness_pct: !input evening_brightness_pct
   evening_preset_source: !input evening_preset_source
@@ -885,12 +904,9 @@ actions:
                                 enabled: "{{ day_start_use_sunrise }}"
                         sequence:
                           - action: scene_presets.apply_preset
-                            data:
-                              preset_id: !input preset_night
-                              brightness: >-
-                                {{ omit if night_brightness_mode in ['slot_only', 'button_own', 'keep_own'] else night_brightness }}
-                              targets:
-                                entity_id: "{{ light_entities }}"
+                            data: >-
+                              {{ {'preset_id': preset_night, 'targets': {'entity_id': light_entities}}
+                                 | combine({'brightness': night_brightness} if night_brightness_mode not in ['slot_only', 'button_own', 'keep_own'] else {}) }}
                       - alias: Evening
                         conditions:
                           - &is_evening_now
@@ -904,20 +920,14 @@ actions:
                                 enabled: "{{ evening_start_use_sunset }}"
                         sequence:
                           - action: scene_presets.apply_preset
-                            data:
-                              preset_id: !input preset_evening
-                              brightness: >-
-                                {{ omit if evening_brightness_mode in ['slot_only', 'button_own', 'keep_own'] else evening_brightness }}
-                              targets:
-                                entity_id: "{{ light_entities }}"
+                            data: >-
+                              {{ {'preset_id': preset_evening, 'targets': {'entity_id': light_entities}}
+                                 | combine({'brightness': evening_brightness} if evening_brightness_mode not in ['slot_only', 'button_own', 'keep_own'] else {}) }}
                     default:
                       - action: scene_presets.apply_preset
-                        data:
-                          preset_id: !input preset_day
-                          brightness: >-
-                            {{ omit if day_brightness_mode in ['slot_only', 'button_own', 'keep_own'] else day_brightness }}
-                          targets:
-                            entity_id: "{{ light_entities }}"
+                        data: >-
+                          {{ {'preset_id': preset_day, 'targets': {'entity_id': light_entities}}
+                             | combine({'brightness': day_brightness} if day_brightness_mode not in ['slot_only', 'button_own', 'keep_own'] else {}) }}
               - alias: We dimmed it, so put back exactly what was there
                 conditions:
                   - condition: state
@@ -961,12 +971,9 @@ actions:
                                       {{ night_brightness_mode in ['override_slot', 'slot_only'] }}
                                 sequence:
                                   - action: scene_presets.apply_preset
-                                    data:
-                                      preset_id: !input preset_night
-                                      brightness: >-
-                                        {{ night_brightness if night_brightness_mode == 'override_slot' else omit }}
-                                      targets:
-                                        entity_id: "{{ light_entities }}"
+                                    data: >-
+                                      {{ {'preset_id': preset_night, 'targets': {'entity_id': light_entities}}
+                                         | combine({'brightness': night_brightness} if night_brightness_mode == 'override_slot' else {}) }}
                               - alias: Button preset
                                 conditions:
                                   - condition: template
@@ -982,20 +989,14 @@ actions:
                                                  not in ['', 'unknown', 'unavailable'] }}
                                         sequence:
                                           - action: scene_presets.apply_preset
-                                            data:
-                                              preset_id: "{{ states(last_preset_helper) }}"
-                                              brightness: >-
-                                                {{ omit if night_brightness_mode == 'button_own' else night_brightness }}
-                                              targets:
-                                                entity_id: "{{ light_entities }}"
+                                            data: >-
+                                              {{ {'preset_id': states(last_preset_helper), 'targets': {'entity_id': light_entities}}
+                                                 | combine({'brightness': night_brightness} if night_brightness_mode != 'button_own' else {}) }}
                                     default:
                                       - action: scene_presets.apply_preset
-                                        data:
-                                          preset_id: !input preset_night
-                                          brightness: >-
-                                            {{ omit if night_brightness_mode == 'button_own' else night_brightness }}
-                                          targets:
-                                            entity_id: "{{ light_entities }}"
+                                        data: >-
+                                          {{ {'preset_id': preset_night, 'targets': {'entity_id': light_entities}}
+                                             | combine({'brightness': night_brightness} if night_brightness_mode != 'button_own' else {}) }}
                             default:
                               # Keep current light settings: restore the
                               # snapshot from the moment the room last went
@@ -1030,12 +1031,9 @@ actions:
                                               transition: !input transition
                                 default:
                                   - action: scene_presets.apply_preset
-                                    data:
-                                      preset_id: !input preset_night
-                                      brightness: >-
-                                        {{ omit if night_brightness_mode == 'keep_own' else night_brightness }}
-                                      targets:
-                                        entity_id: "{{ light_entities }}"
+                                    data: >-
+                                      {{ {'preset_id': preset_night, 'targets': {'entity_id': light_entities}}
+                                         | combine({'brightness': night_brightness} if night_brightness_mode != 'keep_own' else {}) }}
                       - alias: Evening
                         conditions:
                           - *is_evening_now
@@ -1048,12 +1046,9 @@ actions:
                                       {{ evening_brightness_mode in ['override_slot', 'slot_only'] }}
                                 sequence:
                                   - action: scene_presets.apply_preset
-                                    data:
-                                      preset_id: !input preset_evening
-                                      brightness: >-
-                                        {{ evening_brightness if evening_brightness_mode == 'override_slot' else omit }}
-                                      targets:
-                                        entity_id: "{{ light_entities }}"
+                                    data: >-
+                                      {{ {'preset_id': preset_evening, 'targets': {'entity_id': light_entities}}
+                                         | combine({'brightness': evening_brightness} if evening_brightness_mode == 'override_slot' else {}) }}
                               - alias: Button preset
                                 conditions:
                                   - condition: template
@@ -1069,20 +1064,14 @@ actions:
                                                  not in ['', 'unknown', 'unavailable'] }}
                                         sequence:
                                           - action: scene_presets.apply_preset
-                                            data:
-                                              preset_id: "{{ states(last_preset_helper) }}"
-                                              brightness: >-
-                                                {{ omit if evening_brightness_mode == 'button_own' else evening_brightness }}
-                                              targets:
-                                                entity_id: "{{ light_entities }}"
+                                            data: >-
+                                              {{ {'preset_id': states(last_preset_helper), 'targets': {'entity_id': light_entities}}
+                                                 | combine({'brightness': evening_brightness} if evening_brightness_mode != 'button_own' else {}) }}
                                     default:
                                       - action: scene_presets.apply_preset
-                                        data:
-                                          preset_id: !input preset_evening
-                                          brightness: >-
-                                            {{ omit if evening_brightness_mode == 'button_own' else evening_brightness }}
-                                          targets:
-                                            entity_id: "{{ light_entities }}"
+                                        data: >-
+                                          {{ {'preset_id': preset_evening, 'targets': {'entity_id': light_entities}}
+                                             | combine({'brightness': evening_brightness} if evening_brightness_mode != 'button_own' else {}) }}
                             default:
                               # Keep current light settings — see the Night
                               # slot above for why only the slot-brightness
@@ -1112,12 +1101,9 @@ actions:
                                               transition: !input transition
                                 default:
                                   - action: scene_presets.apply_preset
-                                    data:
-                                      preset_id: !input preset_evening
-                                      brightness: >-
-                                        {{ omit if evening_brightness_mode == 'keep_own' else evening_brightness }}
-                                      targets:
-                                        entity_id: "{{ light_entities }}"
+                                    data: >-
+                                      {{ {'preset_id': preset_evening, 'targets': {'entity_id': light_entities}}
+                                         | combine({'brightness': evening_brightness} if evening_brightness_mode != 'keep_own' else {}) }}
                     default:
                       # Daytime. Anchored so the "New day begins" branch
                       # further down can replay exactly this resolution when
@@ -1131,12 +1117,9 @@ actions:
                                   {{ day_brightness_mode in ['override_slot', 'slot_only'] }}
                             sequence:
                               - action: scene_presets.apply_preset
-                                data:
-                                  preset_id: !input preset_day
-                                  brightness: >-
-                                    {{ day_brightness if day_brightness_mode == 'override_slot' else omit }}
-                                  targets:
-                                    entity_id: "{{ light_entities }}"
+                                data: >-
+                                  {{ {'preset_id': preset_day, 'targets': {'entity_id': light_entities}}
+                                     | combine({'brightness': day_brightness} if day_brightness_mode == 'override_slot' else {}) }}
                           - alias: Button preset
                             conditions:
                               - condition: template
@@ -1152,20 +1135,14 @@ actions:
                                              not in ['', 'unknown', 'unavailable'] }}
                                     sequence:
                                       - action: scene_presets.apply_preset
-                                        data:
-                                          preset_id: "{{ states(last_preset_helper) }}"
-                                          brightness: >-
-                                            {{ omit if day_brightness_mode == 'button_own' else day_brightness }}
-                                          targets:
-                                            entity_id: "{{ light_entities }}"
+                                        data: >-
+                                          {{ {'preset_id': states(last_preset_helper), 'targets': {'entity_id': light_entities}}
+                                             | combine({'brightness': day_brightness} if day_brightness_mode != 'button_own' else {}) }}
                                 default:
                                   - action: scene_presets.apply_preset
-                                    data:
-                                      preset_id: !input preset_day
-                                      brightness: >-
-                                        {{ omit if day_brightness_mode == 'button_own' else day_brightness }}
-                                      targets:
-                                        entity_id: "{{ light_entities }}"
+                                    data: >-
+                                      {{ {'preset_id': preset_day, 'targets': {'entity_id': light_entities}}
+                                         | combine({'brightness': day_brightness} if day_brightness_mode != 'button_own' else {}) }}
                         default:
                           # Keep current light settings — see the Night slot
                           # above for why only the slot-brightness variant
@@ -1195,12 +1172,9 @@ actions:
                                           transition: !input transition
                             default:
                               - action: scene_presets.apply_preset
-                                data:
-                                  preset_id: !input preset_day
-                                  brightness: >-
-                                    {{ omit if day_brightness_mode == 'keep_own' else day_brightness }}
-                                  targets:
-                                    entity_id: "{{ light_entities }}"
+                                data: >-
+                                  {{ {'preset_id': preset_day, 'targets': {'entity_id': light_entities}}
+                                     | combine({'brightness': day_brightness} if day_brightness_mode != 'keep_own' else {}) }}
             default:
               # Room already has a light on — not caught by the dim-flag or
               # dark-room branches above, and force_preset_on_motion is off

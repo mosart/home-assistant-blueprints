@@ -682,11 +682,22 @@ Same limitation as the Miele blueprint above: `notify.send_message`
 currently rejects any extra `data` keys, so there's no tap-to-open onto
 the appliance's status entity.
 
+#### Delayed "started" notification
+
+The "started" notification waits a few minutes (configurable, default 3)
+before sending, and reads the program/end-time sensors after that delay
+rather than the instant `run` first appears. Home Connect's cloud doesn't
+estimate the end time until the wash has actually been running for a
+bit — a soil-sensing program like Eco 50 especially — so notifying
+immediately would often show "klaar rond" with no time to give. If the
+end-time sensor is still `unknown` even after the delay, the default
+message says so explicitly ("Eindtijd wordt nog berekend") instead of
+printing a broken-looking "Klaar rond onbekend".
+
 #### Notes on behaviour
 
-- The program is read once, at the moment the "started" notification
-  fires — later changes don't retroactively edit an already-sent
-  notification.
+- The program and end time are read once, after the configured delay —
+  later changes don't retroactively edit an already-sent notification.
 - Home Connect's program options come as vendor-prefixed slugs (e.g.
   `dishcare_dishwasher_program_eco_50`); the blueprint strips everything
   up to the last `_program_` and humanizes what's left (`Eco 50`) rather

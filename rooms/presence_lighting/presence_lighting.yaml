@@ -705,15 +705,16 @@ blueprint:
             duration:
         transition:
           name: Transition time
-          description: How smoothly each change is applied.
-          default: 2
+          description: How smoothly each change is applied — every preset, scene
+            restore, brightness pin, dim, and switch-off this blueprint triggers.
+          default: 15
           selector:
             number:
               min: 0
-              max: 10
-              unit_of_measurement: seconds
-              mode: box
-              step: 0.5
+              max: 30
+              unit_of_measurement: minutes
+              mode: slider
+              step: 1
 
 # restart: returning motion during the dim window must pre-empt the pending
 # switch-off, and a fresh no-motion cycle must supersede the previous one.
@@ -778,6 +779,11 @@ variables:
   day_start_apply_immediately: !input day_start_apply_immediately
   evening_start_use_sunset: !input evening_start_use_sunset
   dim_brightness_pct: !input dim_brightness_pct
+  # The input is in minutes (see the Transition time input above); every
+  # light/scene service call below takes `transition` in seconds, so this is
+  # the one place that conversion happens.
+  transition: !input transition
+  transition_seconds: "{{ (transition | float) * 60 }}"
   # The area selector yields a list, but an instance saved before this input
   # became multi-select still holds a bare string — accept both.
   room_list: "{{ [room] if room is string else room }}"
@@ -921,7 +927,7 @@ actions:
                                 target:
                                   entity_id: "{{ light_entities }}"
                                 data:
-                                  transition: !input transition
+                                  transition: "{{ transition_seconds }}"
                             else:
                               - action: scene_presets.apply_preset
                                 data: >-
@@ -968,7 +974,7 @@ actions:
                     target:
                       entity_id: "{{ snapshot_entity }}"
                     data:
-                      transition: !input transition
+                      transition: "{{ transition_seconds }}"
                   - action: input_boolean.turn_off
                     target:
                       entity_id: !input dim_flag
@@ -1058,7 +1064,7 @@ actions:
                                         target:
                                           entity_id: "{{ snapshot_entity }}"
                                         data:
-                                          transition: !input transition
+                                          transition: "{{ transition_seconds }}"
                                       - if:
                                           - condition: template
                                             value_template: "{{ night_brightness_mode == 'override_current' }}"
@@ -1068,7 +1074,7 @@ actions:
                                               entity_id: "{{ light_entities }}"
                                             data:
                                               brightness: "{{ night_brightness }}"
-                                              transition: !input transition
+                                              transition: "{{ transition_seconds }}"
                                 default:
                                   - if:
                                       - condition: template
@@ -1143,7 +1149,7 @@ actions:
                                         target:
                                           entity_id: "{{ snapshot_entity }}"
                                         data:
-                                          transition: !input transition
+                                          transition: "{{ transition_seconds }}"
                                       - if:
                                           - condition: template
                                             value_template: "{{ evening_brightness_mode == 'override_current' }}"
@@ -1153,7 +1159,7 @@ actions:
                                               entity_id: "{{ light_entities }}"
                                             data:
                                               brightness: "{{ evening_brightness }}"
-                                              transition: !input transition
+                                              transition: "{{ transition_seconds }}"
                                 default:
                                   - if:
                                       - condition: template
@@ -1229,7 +1235,7 @@ actions:
                                     target:
                                       entity_id: "{{ snapshot_entity }}"
                                     data:
-                                      transition: !input transition
+                                      transition: "{{ transition_seconds }}"
                                   - if:
                                       - condition: template
                                         value_template: "{{ day_brightness_mode == 'override_current' }}"
@@ -1239,7 +1245,7 @@ actions:
                                           entity_id: "{{ light_entities }}"
                                         data:
                                           brightness: "{{ day_brightness }}"
-                                          transition: !input transition
+                                          transition: "{{ transition_seconds }}"
                             default:
                               - if:
                                   - condition: template
@@ -1275,7 +1281,7 @@ actions:
                           entity_id: "{{ light_entities }}"
                         data:
                           brightness: "{{ night_brightness }}"
-                          transition: !input transition
+                          transition: "{{ transition_seconds }}"
                   - alias: Evening
                     conditions:
                       - *is_evening_now
@@ -1287,7 +1293,7 @@ actions:
                           entity_id: "{{ light_entities }}"
                         data:
                           brightness: "{{ evening_brightness }}"
-                          transition: !input transition
+                          transition: "{{ transition_seconds }}"
                 default:
                   # Daytime
                   - condition: template
@@ -1297,7 +1303,7 @@ actions:
                       entity_id: "{{ light_entities }}"
                     data:
                       brightness: "{{ day_brightness }}"
-                      transition: !input transition
+                      transition: "{{ transition_seconds }}"
       - alias: Room has gone quiet
         conditions:
           - condition: trigger
@@ -1340,7 +1346,7 @@ actions:
                    | map(attribute='entity_id') | list }}
             data:
               brightness_step_pct: "{{ -1 * (dim_brightness_pct | float) }}"
-              transition: !input transition
+              transition: "{{ transition_seconds }}"
           # Returning motion restarts the automation and cancels this wait.
           - delay: !input no_motion_off_after
           - alias: Still quiet, so switch off
@@ -1348,7 +1354,7 @@ actions:
             target:
               entity_id: "{{ light_entities }}"
             data:
-              transition: !input transition
+              transition: "{{ transition_seconds }}"
           - action: input_boolean.turn_off
             target:
               entity_id: !input dim_flag

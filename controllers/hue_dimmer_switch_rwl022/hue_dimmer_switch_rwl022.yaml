@@ -2,43 +2,54 @@ blueprint:
   name: "[mosart] Hue Dimmer Switch (RWL022) via ZHA"
   description: >-
     Controller for the Philips Hue Dimmer Switch (RWL022, 4 physical
-    buttons: On, brightness up, brightness down, Off) on ZHA.
+    buttons, top to bottom: On/Off toggle, brightness up, brightness
+    down, Scene) on ZHA.
 
 
-    - **On**: if the lights are off, restores the last preset this switch
-    applied (or the first scene below, the first time). If the lights are
-    already on, applies the *next* scene in the list instead — so
-    repeated presses of On cycle through the scenes, the same way the
-    physical Hue dimmer cycles through a room's scenes on the Hue bridge.
+    - **On/Off (top button)**: toggles — turns the lights off if they're
+    on, or restores the last preset this switch applied (or the first
+    scene below, the first time) if they're off.
 
-    - **Off**: turns the lights off.
+    - **Scene (bottom button, printed with the Hue logo rather than an
+    off icon on this model)**: applies the *next* scene in the list,
+    cycling through them on repeated presses — the same way the Hue
+    bridge cycles a room's scenes. Works from off too, which turns the
+    lights on.
 
-    - **Brightness up / brightness down**: steps the current brightness
-    while held, independent of which scene is showing.
+    - **Brightness up / brightness down**: steps the current brightness,
+    independent of which scene is showing. A click steps once; holding
+    steps repeatedly for as long as the button stays held.
 
 
     This device has no event entities under ZHA, so (per this repo's
     convention for ZHA remotes) the triggers key off `device_id` with
     `zha_event`, not an `event.*` entity.
 
-    The up/down buttons both report through the same Zigbee command
-    (`step`) — the direction lives in the command's `args[0]`
-    (`"up"`/`"down"`), not in a separate command name, so that one
-    template condition is unavoidable here (see `template-guidelines.md`
-    for why this is the one place in this blueprint a template is used
-    instead of a native condition). The matching `stop` command, sent
-    when the button is released, isn't needed — the dim step itself is
-    already a one-shot action per repeat, not a start/stop ramp.
+    Unlike the plain On/Off/Step Zigbee cluster commands the Hue Dimmer
+    Switch v1 (RWL021) and other ZHA remotes report, this model's quirk
+    synthesizes named per-button events — `on_short_release`,
+    `up_short_release`, `up_hold` (repeats while held),
+    `up_long_release`, and the equivalents for `down`/`off` — the same
+    scheme `[mosart] Hue Smart Button (ROM001) via ZHA` uses. Each is
+    matched by its own trigger `id`, with no template needed to tell the
+    buttons apart. The device also still emits raw LevelControl
+    `step`/`stop` cluster commands alongside these, left over from
+    whatever group/scene bindings the Hue bridge set up before it was
+    moved to ZHA; those are not used here — direction in a raw `step`
+    event's `args[0]` is a `StepMode` enum (`0`/`1`), not the
+    `"up"`/`"down"` string it might look like, and the named per-button
+    events above already cover click and hold cleanly.
 
 
-    Every scene applied (by On, whether restoring or cycling) is recorded
-    in an `input_text` helper — named after the **Room** input, the same
-    way the `[mosart] Presence lighting with scene memory`, `[mosart] Hue
-    Tap Dial Switch (RDM002) via ZHA` and `[mosart] Hue Smart Button
-    (ROM001) via ZHA` blueprints derive their own name for it — so a
-    presence automation can restore the room's last chosen scene instead
-    of forcing a fixed one. The helper doesn't need to exist: without
-    one, On just always starts the cycle from the first scene below.
+    Every scene applied (by the Scene button cycling, or the On/Off
+    button restoring one) is recorded in an `input_text` helper — named
+    after the **Room** input, the same way the `[mosart] Presence
+    lighting with scene memory`, `[mosart] Hue Tap Dial Switch (RDM002)
+    via ZHA` and `[mosart] Hue Smart Button (ROM001) via ZHA` blueprints
+    derive their own name for it — so a presence automation can restore
+    the room's last chosen scene instead of forcing a fixed one. The
+    helper doesn't need to exist: without one, both buttons just always
+    start from the first scene below.
 
 
     Requires the `scene_presets` custom integration
@@ -76,9 +87,9 @@ blueprint:
       description: >-
         The area(s) this switch lives in. Used only to derive the "last
         chosen scene" helper's entity ID (`input_text.<room>_laatste_preset`)
-        — every scene On applies is written there, so a presence
-        automation can restore what was picked instead of forcing one
-        fixed scene.
+        — every scene applied through this switch is written there, so a
+        presence automation can restore what was picked instead of
+        forcing one fixed scene.
 
         Pick the same area(s), in the same order, as the matching
         Presence lighting instance's **Rooms** input — both blueprints
@@ -93,7 +104,7 @@ blueprint:
           multiple: true
     scene_1:
       name: Scene 1
-      description: First scene in the On-button cycle.
+      description: First scene in the Scene-button cycle.
       selector: &preset_selector
         select:
           mode: dropdown
@@ -394,19 +405,19 @@ blueprint:
             # END generated scene_presets options
     scene_2:
       name: Scene 2
-      description: Second scene in the On-button cycle.
+      description: Second scene in the Scene-button cycle.
       selector: *preset_selector
     scene_3:
       name: Scene 3
-      description: Third scene in the On-button cycle.
+      description: Third scene in the Scene-button cycle.
       selector: *preset_selector
     scene_4:
       name: Scene 4
-      description: Fourth scene in the On-button cycle.
+      description: Fourth scene in the Scene-button cycle.
       selector: *preset_selector
     scene_5:
       name: Scene 5
-      description: Fifth scene in the On-button cycle.
+      description: Fifth scene in the Scene-button cycle.
       selector: *preset_selector
     dim_step:
       name: Dim step
@@ -440,8 +451,8 @@ variables:
   room: !input room
   room_list: "{{ [room] if room is string else room }}"
   last_preset_helper: "input_text.{{ room_list | join('_') }}_laatste_preset"
-  # Fixed cycle order for the On button. Index lookups below use this list
-  # as-is, so reordering the scene_N inputs reorders the cycle.
+  # Fixed cycle order for the Scene button. Index lookups below use this
+  # list as-is, so reordering the scene_N inputs reorders the cycle.
   scenes: "{{ [scene_1, scene_2, scene_3, scene_4, scene_5] }}"
   scene_1: !input scene_1
   scene_2: !input scene_2
@@ -464,31 +475,77 @@ triggers:
     event_type: zha_event
     event_data:
       device_id: !input remote
-      command: "on"
-    id: "on"
+      command: on_short_release
+    id: toggle
   - trigger: event
     event_type: zha_event
     event_data:
       device_id: !input remote
-      command: "off"
-    id: "off"
-  # Up and down both report as "step" -- direction is in args[0], not the
-  # command name, so it's read in the matching condition below instead.
+      command: off_short_release
+    id: cycle
+  # A click (short_release) and a hold (hold, which repeats for as long
+  # as the button stays down) both step the brightness once -- hold's
+  # own repeat rate gives continuous dimming for free, so neither needs
+  # a repeat/wait loop here.
   - trigger: event
     event_type: zha_event
     event_data:
       device_id: !input remote
-      command: step
-    id: step
+      command: up_short_release
+    id: brighten
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: up_hold
+    id: brighten
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: down_short_release
+    id: dim
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote
+      command: down_hold
+    id: dim
 
 conditions: []
 
 actions:
   - choose:
-      # On: restore (if off) or cycle to the next scene (if already on)
+      # On/Off (top button): toggle
       - conditions:
           - condition: trigger
-            id: "on"
+            id: toggle
+        sequence:
+          - if:
+              - condition: state
+                entity_id: !input reference_light
+                state: "on"
+            then:
+              - action: light.turn_off
+                target: !input lights
+                data:
+                  transition: !input transition
+            else:
+              - action: scene_presets.apply_preset
+                data:
+                  preset_id: "{{ resume_preset }}"
+                  targets: !input lights
+              - action: input_text.set_value
+                target:
+                  entity_id: "{{ last_preset_helper }}"
+                data:
+                  value: "{{ resume_preset }}"
+
+      # Scene (bottom button): always cycle to the next scene, turning
+      # the lights on from off if needed
+      - conditions:
+          - condition: trigger
+            id: cycle
         sequence:
           - if:
               - condition: state
@@ -515,38 +572,24 @@ actions:
                 data:
                   value: "{{ resume_preset }}"
 
-      # Off: just turn everything off
+      # Brighten: one step up, on click or on each hold repeat
       - conditions:
           - condition: trigger
-            id: "off"
-        sequence:
-          - action: light.turn_off
-            target: !input lights
-            data:
-              transition: !input transition
-
-      # Up/down: one brightness step, direction from the event's args[0]
-      - conditions:
-          - condition: trigger
-            id: step
-          - condition: template
-            value_template: >-
-              {{ trigger.platform == 'event' and trigger.event.data.args[0] == 'up' }}
+            id: brighten
         sequence:
           - action: light.turn_on
             target: !input lights
             data:
               brightness_step_pct: "{{ dim_step | int }}"
               transition: !input transition
-  - if:
-      - condition: trigger
-        id: step
-      - condition: template
-        value_template: >-
-          {{ trigger.platform == 'event' and trigger.event.data.args[0] == 'down' }}
-    then:
-      - action: light.turn_on
-        target: !input lights
-        data:
-          brightness_step_pct: "{{ -(dim_step | int) }}"
-          transition: !input transition
+
+      # Dim: one step down, on click or on each hold repeat
+      - conditions:
+          - condition: trigger
+            id: dim
+        sequence:
+          - action: light.turn_on
+            target: !input lights
+            data:
+              brightness_step_pct: "{{ -(dim_step | int) }}"
+              transition: !input transition

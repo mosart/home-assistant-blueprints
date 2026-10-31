@@ -7,8 +7,12 @@ blueprint:
 
 
     - **On/Off (top button)**: toggles — turns the lights off if they're
-    on, or restores the last preset this switch applied (or the first
-    scene below, the first time) if they're off.
+    on, first snapshotting their exact state (brightness/color steps
+    from the Brightness buttons included) into a scratch scene; turns
+    them on restoring that exact snapshot if they're off. Before the
+    first Off has ever run (no snapshot exists yet), On instead restores
+    the last preset this switch applied, or the first scene below the
+    very first time.
 
     - **Scene (bottom button, printed with the Hue logo rather than an
     off icon on this model)**: applies the *next* scene in the list,
@@ -452,14 +456,48 @@ variables:
   room_list: "{{ [room] if room is string else room }}"
   last_preset_helper: "input_text.{{ room_list | join('_') }}_laatste_preset"
   dim_step: !input dim_step
-  # Fixed cycle order for the Scene button. Index lookups below use this
-  # list as-is, so reordering the scene_N inputs reorders the cycle.
-  scenes: "{{ [scene_1, scene_2, scene_3, scene_4, scene_5] }}"
+  remote: !input remote
+  lights: !input lights
+  # Resolves the lights target (area/device/entity) to a concrete list of
+  # light entity IDs, for scene.create's snapshot_entities -- that action
+  # takes an explicit entity list, not a target.
+  light_entities: >-
+    {% set t = lights %}
+    {% set ents = namespace(value=[]) %}
+    {% if t.entity_id is defined %}
+      {% set ents.value = ents.value + ([t.entity_id] if t.entity_id is string else t.entity_id) %}
+    {% endif %}
+    {% if t.area_id is defined %}
+      {% for a in ([t.area_id] if t.area_id is string else t.area_id) %}
+        {% set ents.value = ents.value + (area_entities(a) | select('match', '^light\\.') | list) %}
+      {% endfor %}
+    {% endif %}
+    {% if t.device_id is defined %}
+      {% for d in ([t.device_id] if t.device_id is string else t.device_id) %}
+        {% set ents.value = ents.value + (device_entities(d) | select('match', '^light\\.') | list) %}
+      {% endfor %}
+    {% endif %}
+    {{ ents.value | unique | list }}
+  # A snapshot of the lights' exact state (brightness/color, including
+  # anything changed with the brighten/dim buttons since the last named
+  # scene) is taken into this scene right before Off, and restored from
+  # it on On -- so toggling off and back on doesn't snap back to the
+  # named scene's own fixed brightness. See the "scenes" reference's
+  # scene.create/snapshot_entities pattern.
+  snapshot_scene_id: "rwl022_{{ remote }}_snapshot"
+  snapshot_scene_entity: "scene.{{ snapshot_scene_id }}"
+  has_snapshot: "{{ states(snapshot_scene_entity) not in ['unknown', 'unavailable'] }}"
   scene_1: !input scene_1
   scene_2: !input scene_2
   scene_3: !input scene_3
   scene_4: !input scene_4
   scene_5: !input scene_5
+  # Fixed cycle order for the Scene button. Index lookups below use this
+  # list as-is, so reordering the scene_N inputs reorders the cycle.
+  # Must come after scene_1..scene_5 above -- variables are rendered in
+  # order, so referencing them here before they're defined silently
+  # produces a list of Undefined values instead of an error.
+  scenes: "{{ [scene_1, scene_2, scene_3, scene_4, scene_5] }}"
   current_preset: "{{ states(last_preset_helper) }}"
   # -1 (not found) wraps to index 0 on the next line, so "nothing
   # remembered yet" and "remembered preset isn't in this cycle" both
@@ -527,20 +565,34 @@ actions:
                 entity_id: !input reference_light
                 state: "on"
             then:
+              - action: scene.create
+                data:
+                  scene_id: "{{ snapshot_scene_id }}"
+                  snapshot_entities: "{{ light_entities }}"
               - action: light.turn_off
                 target: !input lights
                 data:
                   transition: !input transition
             else:
-              - action: scene_presets.apply_preset
-                data:
-                  preset_id: "{{ resume_preset }}"
-                  targets: !input lights
-              - action: input_text.set_value
-                target:
-                  entity_id: "{{ last_preset_helper }}"
-                data:
-                  value: "{{ resume_preset }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ has_snapshot }}"
+                then:
+                  - action: scene.turn_on
+                    target:
+                      entity_id: "{{ snapshot_scene_entity }}"
+                    data:
+                      transition: !input transition
+                else:
+                  - action: scene_presets.apply_preset
+                    data:
+                      preset_id: "{{ resume_preset }}"
+                      targets: !input lights
+                  - action: input_text.set_value
+                    target:
+                      entity_id: "{{ last_preset_helper }}"
+                    data:
+                      value: "{{ resume_preset }}"
 
       # Scene (bottom button): always cycle to the next scene, turning
       # the lights on from off if needed

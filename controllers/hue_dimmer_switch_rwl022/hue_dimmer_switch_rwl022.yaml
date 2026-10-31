@@ -451,6 +451,7 @@ variables:
   room: !input room
   room_list: "{{ [room] if room is string else room }}"
   last_preset_helper: "input_text.{{ room_list | join('_') }}_laatste_preset"
+  dim_step: !input dim_step
   # Fixed cycle order for the Scene button. Index lookups below use this
   # list as-is, so reordering the scene_N inputs reorders the cycle.
   scenes: "{{ [scene_1, scene_2, scene_3, scene_4, scene_5] }}"

@@ -205,6 +205,11 @@ model).
   area has no on/off state of its own, so the blueprint needs one entity to
   read it from. *Settings → Devices & services → Helpers → Group → Light
   group*.
+- A **text helper** named `input_text.<room>_laatste_preset` (see below).
+  Unlike the other blueprints that share it, this one needs it: it's how
+  the Scene button knows where it is in the cycle. Without it every press
+  applies the first scene. *Settings → Devices & services → Helpers →
+  Text*, max length 255.
 
 #### Choosing presets
 
@@ -224,11 +229,12 @@ lighting with scene memory`, `[mosart] Hue Tap Dial Switch (RDM002) via
 ZHA`, and `[mosart] Hue Smart Button (ROM001) via ZHA` blueprints derive
 from their own **Rooms**/**Room** input — point every instance in a room
 at the same area(s) and they all agree on the helper without any of them
-being told about the others. None of them need it to actually exist: pick
-**Room** for a switch in a space with no matching helper and both buttons
-just always start from the first scene. Create the helper once, named to
-match, only where you actually want the memory to work — Settings →
-Devices & services → Helpers → Text.
+being told about the others.
+
+Turning the lights off with the On/Off button also snapshots their exact
+state (including any Brightness-button adjustments) into a scene named
+`scene.rwl022_<device_id>_snapshot`, and On restores that snapshot rather
+than re-applying the named scene with its own fixed brightness.
 
 #### Notes on behaviour
 

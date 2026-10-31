@@ -52,8 +52,9 @@ blueprint:
     via ZHA` and `[mosart] Hue Smart Button (ROM001) via ZHA` blueprints
     derive their own name for it — so a presence automation can restore
     the room's last chosen scene instead of forcing a fixed one. The
-    helper doesn't need to exist: without one, both buttons just always
-    start from the first scene below.
+    helper is also how the Scene button knows where it is in the cycle:
+    without one it can't advance, and every press applies the first
+    scene below.
 
 
     Requires the `scene_presets` custom integration
@@ -486,7 +487,10 @@ variables:
   # scene.create/snapshot_entities pattern.
   snapshot_scene_id: "rwl022_{{ remote }}_snapshot"
   snapshot_scene_entity: "scene.{{ snapshot_scene_id }}"
-  has_snapshot: "{{ states(snapshot_scene_entity) not in ['unknown', 'unavailable'] }}"
+  # Checks the entity exists rather than its state: a scene's state is the
+  # time it was last activated, so a freshly created snapshot reads
+  # "unknown" until its first restore.
+  has_snapshot: "{{ expand(snapshot_scene_entity) | count > 0 }}"
   scene_1: !input scene_1
   scene_2: !input scene_2
   scene_3: !input scene_3

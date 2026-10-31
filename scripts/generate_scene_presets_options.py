@@ -28,6 +28,10 @@ BLUEPRINT_PATHS = [
     / "rooms"
     / "presence_lighting"
     / "presence_lighting.yaml",
+    Path(__file__).resolve().parent.parent
+    / "controllers"
+    / "hue_dimmer_switch_rwl022"
+    / "hue_dimmer_switch_rwl022.yaml",
 ]
 BEGIN_MARKER = "# BEGIN generated scene_presets options"
 END_MARKER = "# END generated scene_presets options"

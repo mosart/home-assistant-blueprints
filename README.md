@@ -333,6 +333,13 @@ that gets stuck without a ZHA quirk properly enrolling it, for instance,
 while the same device's `occupancy` entity keeps working. No configuration
 is needed either way; the blueprint picks up whichever sensor type is present.
 
+**Sensors that can drop offline** is optional. Home Assistant does not count a
+sensor going straight from `unavailable` to detected as motion, so a battery
+Zigbee sensor that drops offline for a while and recovers just as someone walks
+in leaves the light off. List such sensors there and that recovery counts as
+motion. It is an explicit list because a state trigger can't target an area;
+normal detections still come from the areas, so nothing fires twice.
+
 The set of lights is resolved when the automation runs, not when you save it,
 so moving a lamp between areas is picked up without editing anything.
 

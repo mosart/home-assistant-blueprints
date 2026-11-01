@@ -137,6 +137,30 @@ blueprint:
             entity:
               filter:
                 - domain: input_boolean
+        recovery_sensors:
+          name: Sensors that can drop offline (optional)
+          description: >-
+            Home Assistant does not count a sensor coming back from
+            `unavailable` straight to detected as motion, so if a battery
+            Zigbee sensor drops offline for a while and recovers right as
+            someone walks in, the light stays off. List such sensors here and
+            that recovery counts as motion, exactly like a normal detection.
+            Leave empty if none of the room's sensors do this — the areas
+            above still drive everything else.
+
+
+            This has to be a list of sensors rather than being read from the
+            areas: Home Assistant's state trigger can't target an area.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: binary_sensor
+                  device_class:
+                    - motion
+                    - occupancy
+                    - presence
         force_preset_on_motion:
           name: Always apply time-of-day preset on motion
           description: >-
@@ -846,6 +870,19 @@ triggers:
     options:
       for: "00:00:00"
       behavior: each
+    id: motion
+  # The purpose-specific triggers above ignore a sensor that goes straight
+  # from unavailable to detected, so a battery sensor that dropped offline
+  # and recovers as someone walks in never fires them. This catches exactly
+  # that transition, for the sensors listed under "Sensors that can drop
+  # offline" (a state trigger can't take an area, hence the explicit list).
+  # Normal off -> on detections are not matched here, so nothing fires twice.
+  - trigger: state
+    entity_id: !input recovery_sensors
+    from:
+      - unavailable
+      - unknown
+    to: "on"
     id: motion
   - trigger: motion.cleared
     target:

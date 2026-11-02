@@ -508,6 +508,25 @@ Each slot's own brightness input and preset behaviour still apply here: its
 force it to that slot's brightness input (there is no memory left to "keep"
 when this toggle is on, so both act the same here).
 
+#### Transitions
+
+Three separate transition times, because "someone just walked in" and "the
+evening is winding down" want opposite speeds:
+
+| Situation | Input | Default |
+| --- | --- | --- |
+| Motion in a dark room, or in a room this automation dimmed as a warning | **Fade-in from dark** | 3 seconds |
+| Motion in a room whose lights are already on (e.g. easing an evening scene down to the night brightness, or a forced time-of-day preset taking over) | **Transition when already lit** | 5 minutes |
+| The warning dim, the switch-off, and a slot set to "No preset — turn off" | **Dim & switch-off transition** | 15 minutes |
+
+Motion during a slow already-lit fade does not restart it. A light that is
+fading reports its target brightness straight away, so the automation sees
+it is already heading to the right level and leaves it alone. The one case
+it can't tell is a forced time-of-day preset at its own brightness (there's
+no target brightness to compare): lit lights get that preset re-applied on
+each motion. **Transition when already lit** is capped at 5 minutes, the
+longest transition scene presets accept.
+
 #### Notes on behaviour
 
 The dim is a warning, not a setting: the automation snapshots first, so the

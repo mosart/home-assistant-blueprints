@@ -9,6 +9,7 @@ own setup and shared in case they are useful to someone else.
 | --- | --- | --- |
 | [Hue Smart Button (ROM001) via ZHA](#hue-smart-button-rom001-via-zha) | Controller for the Philips Hue Smart Button, paired through ZHA: short press toggles a scene, double press applies a second scene, hold dims in steps. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_smart_button_rom001%2Fhue_smart_button_rom001.yaml) |
 | [Hue Tap Dial Switch (RDM002) via ZHA](#hue-tap-dial-switch-rdm002-via-zha) | Controller for the Philips Hue Tap Dial Switch, paired through ZHA: each button short/double press applies a scene, long press can switch off, the dial adjusts brightness. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_tap_dial_rdm002%2Fhue_tap_dial_rdm002.yaml) |
+| [Hue Dimmer Switch (RWL022) via ZHA](#hue-dimmer-switch-rwl022-via-zha) | Controller for the Philips Hue Dimmer Switch, paired through ZHA: the top button toggles on/off (restoring the last scene), the bottom button cycles through scenes, and the brightness buttons step the current brightness. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_dimmer_switch_rwl022%2Fhue_dimmer_switch_rwl022.yaml) |
 | [Presence lighting with scene memory](#presence-lighting-with-scene-memory) | Presence lighting for one or more areas: motion or occupancy restores the last scene, or dims/switches off after being quiet, deferring to whatever scene is already in use instead of forcing a fixed one. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml) |
 | [Sonoff Motion Sensor (SNZB-03P) camera-snapshot notification](#sonoff-motion-sensor-snzb-03p-camera-snapshot-notification) | Notifies one or more phones when the sensor detects activity, with a live camera snapshot attached. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fsonoff_motion_snzb03p%2Fsonoff_motion_snzb03p.yaml) |
 | [Scheduled evening dimming](#scheduled-evening-dimming) | Two-step evening dim for a set of areas: lights above a threshold are dimmed to a target level at one time, then dimmed further at a second, later time. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fscheduled_dimming%2Fscheduled_dimming.yaml) |
@@ -179,6 +180,76 @@ Clicking the dial itself (as opposed to turning it) is not exposed to Home
 Assistant at all — the device's ZHA quirk discards that event before it
 becomes visible, so it can't be used in any blueprint built on ZHA.
 
+### Hue Dimmer Switch (RWL022) via ZHA
+
+Controller for the Philips Hue Dimmer Switch, paired through ZHA. Physical
+buttons top to bottom: On/Off, brightness up, brightness down, Scene (the
+bottom button is printed with the Hue logo rather than an off icon on this
+model).
+
+| Action | Behaviour |
+| --- | --- |
+| On/Off (top button) | Toggles: turns the lights off if they're on, or restores the last scene applied through this switch (or the first scene, the first time) if they're off |
+| Scene (bottom button) | Always applies the next scene in the list, cycling through them on repeated presses — turns the lights on from off |
+| Brightness up / down | Steps the current brightness; a click steps once, holding steps repeatedly |
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_dimmer_switch_rwl022%2Fhue_dimmer_switch_rwl022.yaml)
+
+#### Requirements
+
+- The switch paired via **ZHA**. Zigbee2MQTT and deCONZ are not supported;
+  the blueprint listens for `zha_event` directly.
+- The [`scene_presets`](https://github.com/Hypfer/hass-scene_presets) custom
+  integration, installed through HACS.
+- A **light group** (or any single light) to use as the reference entity. An
+  area has no on/off state of its own, so the blueprint needs one entity to
+  read it from. *Settings → Devices & services → Helpers → Group → Light
+  group*.
+- A **text helper** named `input_text.<room>_laatste_preset` (see below).
+  Unlike the other blueprints that share it, this one needs it: it's how
+  the Scene button knows where it is in the cycle. Without it every press
+  applies the first scene. *Settings → Devices & services → Helpers →
+  Text*, max length 255.
+
+#### Choosing presets
+
+Same picker as the Smart Button blueprint above — see "Choosing presets"
+there. The five scenes form a fixed cycle: repeatedly pressing the Scene
+button steps through them in order, wrapping back to the first after the
+fifth.
+
+#### Remembering the last scene
+
+Every scene applied (by the Scene button cycling, or the On/Off button
+restoring one) is written to an `input_text` helper named after the
+**Room** input —
+`input_text.<room>_laatste_preset` (areas joined with `_` for a switch
+spanning more than one). This is the same name the `[mosart] Presence
+lighting with scene memory`, `[mosart] Hue Tap Dial Switch (RDM002) via
+ZHA`, and `[mosart] Hue Smart Button (ROM001) via ZHA` blueprints derive
+from their own **Rooms**/**Room** input — point every instance in a room
+at the same area(s) and they all agree on the helper without any of them
+being told about the others.
+
+Turning the lights off with the On/Off button also snapshots their exact
+state (including any Brightness-button adjustments) into a scene named
+`scene.rwl022_<device_id>_snapshot`, and On restores that snapshot rather
+than re-applying the named scene with its own fixed brightness.
+
+#### Notes on behaviour
+
+This model's ZHA quirk reports named per-button events
+(`on_short_release`, `up_hold`, …) rather than the plain Zigbee
+On/Off/Step commands some other ZHA remotes use — the blueprint relies on
+that naming to tell the four buttons apart without a template. It also
+still emits raw LevelControl `step`/`stop` cluster commands in parallel,
+left over from whatever group/scene bindings the Hue bridge set up before
+the device was moved to ZHA; those are ignored here.
+
+Pressing On/Off while the lights are off never advances the Scene cycle —
+it always restores whatever scene was last applied (or the first scene,
+the first time), so a plain off/on doesn't skip one.
+
 ### Sonoff Motion Sensor (SNZB-03P) camera-snapshot notification
 
 Controller for the Sonoff SNZB-03P motion sensor (ZHA): notifies one or more
@@ -261,6 +332,13 @@ exposes both and one of them turns out unreliable — a `motion` binary sensor
 that gets stuck without a ZHA quirk properly enrolling it, for instance,
 while the same device's `occupancy` entity keeps working. No configuration
 is needed either way; the blueprint picks up whichever sensor type is present.
+
+**Sensors that can drop offline** is optional. Home Assistant does not count a
+sensor going straight from `unavailable` to detected as motion, so a battery
+Zigbee sensor that drops offline for a while and recovers just as someone walks
+in leaves the light off. List such sensors there and that recovery counts as
+motion. It is an explicit list because a state trigger can't target an area;
+normal detections still come from the areas, so nothing fires twice.
 
 The set of lights is resolved when the automation runs, not when you save it,
 so moving a lamp between areas is picked up without editing anything.
@@ -389,6 +467,18 @@ A preset picked for its colour doesn't necessarily read as dim once applied
 brightness input pins the slot's look down independently of whichever
 preset is selected, whichever of the first two modes is in effect.
 
+Besides the scene presets, each slot's preset dropdown has two special
+options:
+
+- **No preset — turn off** — the room stays dark in that slot, whatever
+  the motion (e.g. an outdoor lamp during daylight).
+- **Custom colour (pick below)** — a plain colour instead of a scene preset,
+  chosen with Home Assistant's own colour picker in the **colour** input
+  right below the dropdown. It is always applied at the slot's brightness
+  input (a colour carries no brightness of its own), whatever the
+  brightness behaviour setting says. The colour input is ignored while the
+  dropdown holds a scene preset.
+
 Turning either sunrise/sunset toggle on doesn't need a matching change
 anywhere else: the Daytime/Evening/Night decision above and each preset's
 own behaviour setting both read the same boundaries, so they stay in sync
@@ -429,6 +519,25 @@ Each slot's own brightness input and preset behaviour still apply here: its
 "at its own brightness" mode leaves the preset untouched, the other two
 force it to that slot's brightness input (there is no memory left to "keep"
 when this toggle is on, so both act the same here).
+
+#### Transitions
+
+Three separate transition times, because "someone just walked in" and "the
+evening is winding down" want opposite speeds:
+
+| Situation | Input | Default |
+| --- | --- | --- |
+| Motion in a dark room, or in a room this automation dimmed as a warning | **Fade-in from dark** | 3 seconds |
+| Motion in a room whose lights are already on (e.g. easing an evening scene down to the night brightness, or a forced time-of-day preset taking over) | **Transition when already lit** | 5 minutes |
+| The warning dim, the switch-off, and a slot set to "No preset — turn off" | **Dim & switch-off transition** | 15 minutes |
+
+Motion during a slow already-lit fade does not restart it. A light that is
+fading reports its target brightness straight away, so the automation sees
+it is already heading to the right level and leaves it alone. The one case
+it can't tell is a forced time-of-day preset at its own brightness (there's
+no target brightness to compare): lit lights get that preset re-applied on
+each motion. **Transition when already lit** is capped at 5 minutes, the
+longest transition scene presets accept.
 
 #### Notes on behaviour
 

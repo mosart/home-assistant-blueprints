@@ -414,9 +414,11 @@ blueprint:
           mode: box
           step: 0.1
 
-mode: queued
-max: 25
-max_exceeded: silent
+# restart: a fresh press/step must supersede whatever is still mid-flight
+# (e.g. a dim step waiting on a slow Zigbee round-trip) rather than queue
+# behind it — queued mode let a backlog of held-button step events drain
+# out long after the button was released, each one still trying to apply.
+mode: restart
 
 variables:
   step_size: !input dim_step

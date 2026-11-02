@@ -467,6 +467,18 @@ A preset picked for its colour doesn't necessarily read as dim once applied
 brightness input pins the slot's look down independently of whichever
 preset is selected, whichever of the first two modes is in effect.
 
+Besides the scene presets, each slot's preset dropdown has two special
+options:
+
+- **No preset — turn off** — the room stays dark in that slot, whatever
+  the motion (e.g. an outdoor lamp during daylight).
+- **Custom colour (pick below)** — a plain colour instead of a scene preset,
+  chosen with Home Assistant's own colour picker in the **colour** input
+  right below the dropdown. It is always applied at the slot's brightness
+  input (a colour carries no brightness of its own), whatever the
+  brightness behaviour setting says. The colour input is ignored while the
+  dropdown holds a scene preset.
+
 Turning either sunrise/sunset toggle on doesn't need a matching change
 anywhere else: the Daytime/Evening/Night decision above and each preset's
 own behaviour setting both read the same boundaries, so they stay in sync

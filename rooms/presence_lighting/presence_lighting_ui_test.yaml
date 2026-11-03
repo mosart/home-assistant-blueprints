@@ -36,7 +36,7 @@ blueprint:
     input then goes unused for that slot.
     A slot can also be set to **"Light colour (pick below)"** or **"White
     (pick temperature below)"** to show a colour from Home Assistant's
-    colour list, or a white of a chosen temperature, instead of a scene
+    colour picker, or a white of a chosen temperature, instead of a scene
     preset — always at that slot's brightness.
 
     - **Motion while already lit**: normally does nothing — a preset someone
@@ -509,11 +509,9 @@ blueprint:
           description: >-
             Only used when the Daytime preset above is "Light colour (pick
             below)". Always applied at this slot's brightness below.
-          default: orange
-          selector: &ui_color_selector
-            ui_color:
-              include_none: false
-              include_state: false
+          default: [255, 110, 84]
+          selector: &colour_rgb_selector
+            color_rgb: {}
         day_white_kelvin:
           name: Daytime white temperature
           description: >-
@@ -641,8 +639,8 @@ blueprint:
           description: >-
             Only used when the Evening preset above is "Light colour (pick
             below)". Always applied at this slot's brightness below.
-          default: orange
-          selector: *ui_color_selector
+          default: [255, 110, 84]
+          selector: *colour_rgb_selector
         evening_white_kelvin:
           name: Evening white temperature
           description: >-
@@ -707,8 +705,8 @@ blueprint:
           description: >-
             Only used when the Night preset above is "Light colour (pick
             below)". Always applied at this slot's brightness below.
-          default: orange
-          selector: *ui_color_selector
+          default: [255, 110, 84]
+          selector: *colour_rgb_selector
         night_white_kelvin:
           name: Night white temperature
           description: >-
@@ -853,49 +851,27 @@ variables:
   preset_day: !input preset_day
   # "Light colour (pick below)" / "White (pick temperature below)" in a
   # preset dropdown are not scene presets: they turn the lights on with
-  # light.turn_on in the slot's light colour or white temperature. The
-  # colour picker yields one of HA's named UI colours, mapped here to the
-  # same Material Design shade its swatch shows (greys, black and white
-  # become plain white — a light can't show grey). Decoded below into
-  # light.turn_on data; empty when the slot holds a real scene preset.
-  ui_colour_rgb:
-    primary: [3, 169, 244]
-    accent: [255, 152, 0]
-    red: [244, 67, 54]
-    pink: [233, 30, 99]
-    purple: [156, 39, 176]
-    deep-purple: [103, 58, 183]
-    indigo: [63, 81, 181]
-    blue: [33, 150, 243]
-    light-blue: [3, 169, 244]
-    cyan: [0, 188, 212]
-    teal: [0, 150, 136]
-    green: [76, 175, 80]
-    light-green: [139, 195, 74]
-    lime: [205, 220, 57]
-    yellow: [255, 235, 59]
-    amber: [255, 193, 7]
-    orange: [255, 152, 0]
-    deep-orange: [255, 87, 34]
-    brown: [121, 85, 72]
+  # light.turn_on in the slot's picked colour or white temperature. Decoded
+  # here into light.turn_on data; empty when the slot holds a real scene
+  # preset (or "off").
   day_light_colour: !input day_light_colour
   day_white_kelvin: !input day_white_kelvin
   day_colour_data: >-
-    {%- if preset_day == 'color' -%}{{ {'rgb_color': ui_colour_rgb.get(day_light_colour | string, [255, 255, 255])} }}
+    {%- if preset_day == 'color' -%}{{ {'rgb_color': day_light_colour | map('int') | list} }}
     {%- elif preset_day == 'white' -%}{{ {'color_temp_kelvin': day_white_kelvin | int} }}
     {%- else -%}{{ {} }}
     {%- endif -%}
   evening_light_colour: !input evening_light_colour
   evening_white_kelvin: !input evening_white_kelvin
   evening_colour_data: >-
-    {%- if preset_evening == 'color' -%}{{ {'rgb_color': ui_colour_rgb.get(evening_light_colour | string, [255, 255, 255])} }}
+    {%- if preset_evening == 'color' -%}{{ {'rgb_color': evening_light_colour | map('int') | list} }}
     {%- elif preset_evening == 'white' -%}{{ {'color_temp_kelvin': evening_white_kelvin | int} }}
     {%- else -%}{{ {} }}
     {%- endif -%}
   night_light_colour: !input night_light_colour
   night_white_kelvin: !input night_white_kelvin
   night_colour_data: >-
-    {%- if preset_night == 'color' -%}{{ {'rgb_color': ui_colour_rgb.get(night_light_colour | string, [255, 255, 255])} }}
+    {%- if preset_night == 'color' -%}{{ {'rgb_color': night_light_colour | map('int') | list} }}
     {%- elif preset_night == 'white' -%}{{ {'color_temp_kelvin': night_white_kelvin | int} }}
     {%- else -%}{{ {} }}
     {%- endif -%}

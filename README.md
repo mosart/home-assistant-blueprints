@@ -546,6 +546,24 @@ no target brightness to compare): lit lights get that preset re-applied on
 each motion. **Transition when already lit** is capped at 5 minutes, the
 longest transition scene presets accept.
 
+#### Missed switch-offs
+
+The "no motion" countdown runs inside Home Assistant and is lost whenever
+the automation reloads mid-way — saving it, re-importing this blueprint, or
+restarting Home Assistant. Without a safety net the light would then stay on
+until the next motion. So the blueprint also re-checks once a minute: when a
+light is still on and the room has been quiet for longer than **Dim after**
+plus 2 minutes (or **Dim after** + **Switch off after** + 2 minutes if the
+warning dim already happened), it runs the normal dim and switch-off after
+all (or switches straight off if the dim already happened).
+
+"Quiet" counts from whichever came last: the room's motion or occupancy
+sensors all clearing, or a light being switched on. A light switched on by
+hand in an empty room therefore also dims and switches off, **Dim after**
+(+ 2 minutes) after it was switched on. The check only fires on the moment
+the room *becomes* overdue; a room already overdue at the moment the
+automation reloads is not caught until the lights or sensors change again.
+
 #### Notes on behaviour
 
 The dim is a warning, not a setting: the automation snapshots first, so the

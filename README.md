@@ -346,6 +346,10 @@ so moving a lamp between areas is picked up without editing anything.
 **Lights (override)** is for departing from that: control only a subset, or
 reach a lamp that lives in another area. Leave it empty for the normal case.
 
+**Lights to exclude** keeps the area-based set but leaves out the lights you
+list — a wall tablet's screen exposed as a light, say. Lamps added to the area
+later are still picked up. It only applies when **Lights (override)** is empty.
+
 A light *group* in one of the areas (a Hue room/zone light, a light group
 helper, or a ZHA Zigbee group) is left out of the derived set — only its
 members are controlled. Snapshotting both a group and its members would

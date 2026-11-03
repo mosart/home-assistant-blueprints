@@ -467,17 +467,20 @@ A preset picked for its colour doesn't necessarily read as dim once applied
 brightness input pins the slot's look down independently of whichever
 preset is selected, whichever of the first two modes is in effect.
 
-Besides the scene presets, each slot's preset dropdown has two special
+Besides the scene presets, each slot's preset dropdown has some special
 options:
 
 - **No preset — turn off** — the room stays dark in that slot, whatever
   the motion (e.g. an outdoor lamp during daylight).
-- **Custom colour (pick below)** — a plain colour instead of a scene preset,
-  chosen with Home Assistant's own colour picker in the **colour** input
-  right below the dropdown. It is always applied at the slot's brightness
-  input (a colour carries no brightness of its own), whatever the
-  brightness behaviour setting says. The colour input is ignored while the
-  dropdown holds a scene preset.
+- **Light colour — ...** — a plain white or colour instead of a scene
+  preset: the same palette Home Assistant shows as favourite colours in a
+  colour light's own dialog (warmest, warm, neutral and cool white; blue,
+  purple, pink and red), plus green. It is always applied at the slot's
+  brightness input (a colour carries no brightness of its own), whatever
+  the brightness behaviour setting says. A blueprint can't read a light's
+  own favourites, so this is a fixed copy of HA's default palette; the
+  whites are 1800/3400/5000/6500 K, and a light whose range is narrower
+  gets the nearest temperature it supports.
 
 Turning either sunrise/sunset toggle on doesn't need a matching change
 anywhere else: the Daytime/Evening/Night decision above and each preset's

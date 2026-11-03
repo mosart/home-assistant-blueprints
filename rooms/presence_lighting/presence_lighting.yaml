@@ -34,9 +34,10 @@ blueprint:
     during full daylight). Wherever that slot's preset would normally be
     applied, the lights are switched off instead; its own brightness
     input then goes unused for that slot.
-    A slot can also be set to **"Custom colour (pick below)"** to show a
-    plain colour from Home Assistant's colour picker instead of a scene
-    preset, always at that slot's brightness.
+    A slot can also be set to one of the **"Light colour — ..."** options —
+    the same whites and colours Home Assistant offers as favourites in a
+    light's own dialog — instead of a scene preset, always at that slot's
+    brightness.
 
     - **Motion while already lit**: normally does nothing — a preset someone
     just set by hand (remote, dashboard, voice assistant) is left alone.
@@ -205,8 +206,24 @@ blueprint:
               options:
                 - label: "No preset — turn off"
                   value: "off"
-                - label: "Custom colour (pick below)"
-                  value: "color"
+                - label: "Light colour — Warmest white"
+                  value: "kelvin:1800"
+                - label: "Light colour — Warm white"
+                  value: "kelvin:3400"
+                - label: "Light colour — Neutral white"
+                  value: "kelvin:5000"
+                - label: "Light colour — Cool white"
+                  value: "kelvin:6500"
+                - label: "Light colour — Blue"
+                  value: "rgb:127,172,255"
+                - label: "Light colour — Purple"
+                  value: "rgb:215,150,255"
+                - label: "Light colour — Pink"
+                  value: "rgb:255,158,243"
+                - label: "Light colour — Red"
+                  value: "rgb:255,110,84"
+                - label: "Light colour — Green"
+                  value: "rgb:77,255,0"
                 # BEGIN generated scene_presets options
                 - label: "Defaults — Rest"
                   value: "e03267e7-9914-4f47-97fe-63c0bd317fe7"
@@ -501,17 +518,6 @@ blueprint:
                 - label: "Sports live — Stadium"
                   value: "f587060a-c4a1-4885-87ff-54c247fb29e6"
                 # END generated scene_presets options
-        day_color:
-          name: Daytime colour
-          description: >-
-            Only used when the Daytime preset above is "Custom colour (pick
-            below)": motion then turns the lights on in this colour instead of
-            a scene preset, always at this slot's brightness below (a colour
-            has no brightness of its own, so the brightness behaviour setting
-            doesn't apply to it).
-          default: [255, 166, 87]
-          selector: &color_selector
-            color_rgb: {}
         day_brightness_pct:
           name: Daytime preset brightness
           description: >-
@@ -622,16 +628,6 @@ blueprint:
           name: Evening preset
           description: Applied after the evening slot starts, until the night slot begins.
           selector: *preset_selector
-        evening_color:
-          name: Evening colour
-          description: >-
-            Only used when the Evening preset above is "Custom colour (pick
-            below)": motion then turns the lights on in this colour instead of
-            a scene preset, always at this slot's brightness below (a colour
-            has no brightness of its own, so the brightness behaviour setting
-            doesn't apply to it).
-          default: [255, 166, 87]
-          selector: *color_selector
         evening_brightness_pct:
           name: Evening preset brightness
           description: >-
@@ -683,16 +679,6 @@ blueprint:
             Applied between the night boundary below and morning begins (set
             next to the Daytime preset above).
           selector: *preset_selector
-        night_color:
-          name: Night colour
-          description: >-
-            Only used when the Night preset above is "Custom colour (pick
-            below)": motion then turns the lights on in this colour instead of
-            a scene preset, always at this slot's brightness below (a colour
-            has no brightness of its own, so the brightness behaviour setting
-            doesn't apply to it).
-          default: [255, 166, 87]
-          selector: *color_selector
         night_brightness_pct:
           name: Night preset brightness
           description: >-
@@ -827,9 +813,28 @@ variables:
   preset_night: !input preset_night
   preset_evening: !input preset_evening
   preset_day: !input preset_day
-  day_color: !input day_color
-  evening_color: !input evening_color
-  night_color: !input night_color
+  # A "Light colour — ..." option in a preset dropdown is not a scene preset
+  # but HA's own favourite-colour palette, encoded as "kelvin:<K>" or
+  # "rgb:<r>,<g>,<b>". Decoded here into light.turn_on data; empty when the
+  # slot holds a real scene preset (or "off").
+  day_colour_data: >-
+    {%- set p = preset_day | string -%}
+    {%- if p.startswith('kelvin:') -%}{{ {'color_temp_kelvin': p[7:] | int} }}
+    {%- elif p.startswith('rgb:') -%}{{ {'rgb_color': p[4:].split(',') | map('int') | list} }}
+    {%- else -%}{{ {} }}
+    {%- endif -%}
+  evening_colour_data: >-
+    {%- set p = preset_evening | string -%}
+    {%- if p.startswith('kelvin:') -%}{{ {'color_temp_kelvin': p[7:] | int} }}
+    {%- elif p.startswith('rgb:') -%}{{ {'rgb_color': p[4:].split(',') | map('int') | list} }}
+    {%- else -%}{{ {} }}
+    {%- endif -%}
+  night_colour_data: >-
+    {%- set p = preset_night | string -%}
+    {%- if p.startswith('kelvin:') -%}{{ {'color_temp_kelvin': p[7:] | int} }}
+    {%- elif p.startswith('rgb:') -%}{{ {'rgb_color': p[4:].split(',') | map('int') | list} }}
+    {%- else -%}{{ {} }}
+    {%- endif -%}
   day_brightness_pct: !input day_brightness_pct
   day_preset_source: !input day_preset_source
   day_own_brightness: !input day_own_brightness
@@ -1038,12 +1043,12 @@ actions:
                         sequence:
                           - variables:
                               slot_preset: "{{ preset_night }}"
-                              slot_color: "{{ night_color }}"
+                              slot_colour_data: "{{ night_colour_data }}"
                               # -1: leave the preset at its own brightness. A
-                              # custom colour has none, so it always gets the
+                              # light colour has none, so it always gets the
                               # slot's brightness.
                               slot_brightness: >-
-                                {{ night_brightness if (preset_night == 'color' or night_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
+                                {{ night_brightness if (night_colour_data | count > 0 or night_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
                           # Shared by all three slots (aliased below). Lights
                           # that are off — or the whole room, while our warning
                           # dim is holding it down — get the quick fade-in;
@@ -1087,20 +1092,20 @@ actions:
                                   - condition: template
                                     value_template: "{{ dark_targets | count > 0 }}"
                                 then:
-                                  - action: "{{ 'light.turn_on' if slot_preset == 'color' else 'scene_presets.apply_preset' }}"
+                                  - action: "{{ 'light.turn_on' if slot_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                     data: >-
-                                      {{ {'entity_id': dark_targets, 'rgb_color': slot_color, 'brightness': slot_brightness | int, 'transition': fade_in_seconds | float}
-                                         if slot_preset == 'color' else
+                                      {{ {'entity_id': dark_targets, 'brightness': slot_brightness | int, 'transition': fade_in_seconds | float} | combine(slot_colour_data)
+                                         if slot_colour_data | count > 0 else
                                          {'preset_id': slot_preset, 'targets': {'entity_id': dark_targets}, 'transition': fade_in_seconds | float}
                                          | combine({'brightness': slot_brightness | int} if (slot_brightness | int) >= 0 else {}) }}
                               - if:
                                   - condition: template
                                     value_template: "{{ lit_targets | count > 0 }}"
                                 then:
-                                  - action: "{{ 'light.turn_on' if slot_preset == 'color' else 'scene_presets.apply_preset' }}"
+                                  - action: "{{ 'light.turn_on' if slot_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                     data: >-
-                                      {{ {'entity_id': lit_targets, 'rgb_color': slot_color, 'brightness': slot_brightness | int, 'transition': lit_transition_seconds | float}
-                                         if slot_preset == 'color' else
+                                      {{ {'entity_id': lit_targets, 'brightness': slot_brightness | int, 'transition': lit_transition_seconds | float} | combine(slot_colour_data)
+                                         if slot_colour_data | count > 0 else
                                          {'preset_id': slot_preset, 'targets': {'entity_id': lit_targets}, 'transition': lit_transition_seconds | float}
                                          | combine({'brightness': slot_brightness | int} if (slot_brightness | int) >= 0 else {}) }}
                               - action: input_boolean.turn_off
@@ -1120,16 +1125,16 @@ actions:
                         sequence:
                           - variables:
                               slot_preset: "{{ preset_evening }}"
-                              slot_color: "{{ evening_color }}"
+                              slot_colour_data: "{{ evening_colour_data }}"
                               slot_brightness: >-
-                                {{ evening_brightness if (preset_evening == 'color' or evening_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
+                                {{ evening_brightness if (evening_colour_data | count > 0 or evening_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
                           - *force_apply_slot
                     default:
                       - variables:
                           slot_preset: "{{ preset_day }}"
-                          slot_color: "{{ day_color }}"
+                          slot_colour_data: "{{ day_colour_data }}"
                           slot_brightness: >-
-                            {{ day_brightness if (preset_day == 'color' or day_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
+                            {{ day_brightness if (day_colour_data | count > 0 or day_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
                       - *force_apply_slot
               - alias: We dimmed it, so put back exactly what was there
                 conditions:
@@ -1178,10 +1183,10 @@ actions:
                                         value_template: "{{ preset_night == 'off' }}"
                                     then: *turn_off_sequence
                                     else:
-                                      - action: "{{ 'light.turn_on' if preset_night == 'color' else 'scene_presets.apply_preset' }}"
+                                      - action: "{{ 'light.turn_on' if night_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                         data: >-
-                                          {{ {'entity_id': light_entities, 'rgb_color': night_color, 'brightness': night_brightness, 'transition': fade_in_seconds | float}
-                                             if preset_night == 'color' else
+                                          {{ {'entity_id': light_entities, 'brightness': night_brightness, 'transition': fade_in_seconds | float} | combine(night_colour_data)
+                                             if night_colour_data | count > 0 else
                                              {'preset_id': preset_night, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                              | combine({'brightness': night_brightness} if night_brightness_mode == 'override_slot' else {}) }}
                               - alias: Button preset
@@ -1208,10 +1213,10 @@ actions:
                                             value_template: "{{ preset_night == 'off' }}"
                                         then: *turn_off_sequence
                                         else:
-                                          - action: "{{ 'light.turn_on' if preset_night == 'color' else 'scene_presets.apply_preset' }}"
+                                          - action: "{{ 'light.turn_on' if night_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                             data: >-
-                                              {{ {'entity_id': light_entities, 'rgb_color': night_color, 'brightness': night_brightness, 'transition': fade_in_seconds | float}
-                                                 if preset_night == 'color' else
+                                              {{ {'entity_id': light_entities, 'brightness': night_brightness, 'transition': fade_in_seconds | float} | combine(night_colour_data)
+                                                 if night_colour_data | count > 0 else
                                                  {'preset_id': preset_night, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                                  | combine({'brightness': night_brightness} if night_brightness_mode != 'button_own' else {}) }}
                             default:
@@ -1252,10 +1257,10 @@ actions:
                                         value_template: "{{ preset_night == 'off' }}"
                                     then: *turn_off_sequence
                                     else:
-                                      - action: "{{ 'light.turn_on' if preset_night == 'color' else 'scene_presets.apply_preset' }}"
+                                      - action: "{{ 'light.turn_on' if night_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                         data: >-
-                                          {{ {'entity_id': light_entities, 'rgb_color': night_color, 'brightness': night_brightness, 'transition': fade_in_seconds | float}
-                                             if preset_night == 'color' else
+                                          {{ {'entity_id': light_entities, 'brightness': night_brightness, 'transition': fade_in_seconds | float} | combine(night_colour_data)
+                                             if night_colour_data | count > 0 else
                                              {'preset_id': preset_night, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                              | combine({'brightness': night_brightness} if night_brightness_mode != 'keep_own' else {}) }}
                       - alias: Evening
@@ -1274,10 +1279,10 @@ actions:
                                         value_template: "{{ preset_evening == 'off' }}"
                                     then: *turn_off_sequence
                                     else:
-                                      - action: "{{ 'light.turn_on' if preset_evening == 'color' else 'scene_presets.apply_preset' }}"
+                                      - action: "{{ 'light.turn_on' if evening_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                         data: >-
-                                          {{ {'entity_id': light_entities, 'rgb_color': evening_color, 'brightness': evening_brightness, 'transition': fade_in_seconds | float}
-                                             if preset_evening == 'color' else
+                                          {{ {'entity_id': light_entities, 'brightness': evening_brightness, 'transition': fade_in_seconds | float} | combine(evening_colour_data)
+                                             if evening_colour_data | count > 0 else
                                              {'preset_id': preset_evening, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                              | combine({'brightness': evening_brightness} if evening_brightness_mode == 'override_slot' else {}) }}
                               - alias: Button preset
@@ -1304,10 +1309,10 @@ actions:
                                             value_template: "{{ preset_evening == 'off' }}"
                                         then: *turn_off_sequence
                                         else:
-                                          - action: "{{ 'light.turn_on' if preset_evening == 'color' else 'scene_presets.apply_preset' }}"
+                                          - action: "{{ 'light.turn_on' if evening_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                             data: >-
-                                              {{ {'entity_id': light_entities, 'rgb_color': evening_color, 'brightness': evening_brightness, 'transition': fade_in_seconds | float}
-                                                 if preset_evening == 'color' else
+                                              {{ {'entity_id': light_entities, 'brightness': evening_brightness, 'transition': fade_in_seconds | float} | combine(evening_colour_data)
+                                                 if evening_colour_data | count > 0 else
                                                  {'preset_id': preset_evening, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                                  | combine({'brightness': evening_brightness} if evening_brightness_mode != 'button_own' else {}) }}
                             default:
@@ -1343,10 +1348,10 @@ actions:
                                         value_template: "{{ preset_evening == 'off' }}"
                                     then: *turn_off_sequence
                                     else:
-                                      - action: "{{ 'light.turn_on' if preset_evening == 'color' else 'scene_presets.apply_preset' }}"
+                                      - action: "{{ 'light.turn_on' if evening_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                         data: >-
-                                          {{ {'entity_id': light_entities, 'rgb_color': evening_color, 'brightness': evening_brightness, 'transition': fade_in_seconds | float}
-                                             if preset_evening == 'color' else
+                                          {{ {'entity_id': light_entities, 'brightness': evening_brightness, 'transition': fade_in_seconds | float} | combine(evening_colour_data)
+                                             if evening_colour_data | count > 0 else
                                              {'preset_id': preset_evening, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                              | combine({'brightness': evening_brightness} if evening_brightness_mode != 'keep_own' else {}) }}
                     default:
@@ -1366,10 +1371,10 @@ actions:
                                     value_template: "{{ preset_day == 'off' }}"
                                 then: *turn_off_sequence
                                 else:
-                                  - action: "{{ 'light.turn_on' if preset_day == 'color' else 'scene_presets.apply_preset' }}"
+                                  - action: "{{ 'light.turn_on' if day_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                     data: >-
-                                      {{ {'entity_id': light_entities, 'rgb_color': day_color, 'brightness': day_brightness, 'transition': fade_in_seconds | float}
-                                         if preset_day == 'color' else
+                                      {{ {'entity_id': light_entities, 'brightness': day_brightness, 'transition': fade_in_seconds | float} | combine(day_colour_data)
+                                         if day_colour_data | count > 0 else
                                          {'preset_id': preset_day, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                          | combine({'brightness': day_brightness} if day_brightness_mode == 'override_slot' else {}) }}
                           - alias: Button preset
@@ -1396,10 +1401,10 @@ actions:
                                         value_template: "{{ preset_day == 'off' }}"
                                     then: *turn_off_sequence
                                     else:
-                                      - action: "{{ 'light.turn_on' if preset_day == 'color' else 'scene_presets.apply_preset' }}"
+                                      - action: "{{ 'light.turn_on' if day_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                         data: >-
-                                          {{ {'entity_id': light_entities, 'rgb_color': day_color, 'brightness': day_brightness, 'transition': fade_in_seconds | float}
-                                             if preset_day == 'color' else
+                                          {{ {'entity_id': light_entities, 'brightness': day_brightness, 'transition': fade_in_seconds | float} | combine(day_colour_data)
+                                             if day_colour_data | count > 0 else
                                              {'preset_id': preset_day, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                              | combine({'brightness': day_brightness} if day_brightness_mode != 'button_own' else {}) }}
                         default:
@@ -1435,10 +1440,10 @@ actions:
                                     value_template: "{{ preset_day == 'off' }}"
                                 then: *turn_off_sequence
                                 else:
-                                  - action: "{{ 'light.turn_on' if preset_day == 'color' else 'scene_presets.apply_preset' }}"
+                                  - action: "{{ 'light.turn_on' if day_colour_data | count > 0 else 'scene_presets.apply_preset' }}"
                                     data: >-
-                                      {{ {'entity_id': light_entities, 'rgb_color': day_color, 'brightness': day_brightness, 'transition': fade_in_seconds | float}
-                                         if preset_day == 'color' else
+                                      {{ {'entity_id': light_entities, 'brightness': day_brightness, 'transition': fade_in_seconds | float} | combine(day_colour_data)
+                                         if day_colour_data | count > 0 else
                                          {'preset_id': preset_day, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                          | combine({'brightness': day_brightness} if day_brightness_mode != 'keep_own' else {}) }}
             default:

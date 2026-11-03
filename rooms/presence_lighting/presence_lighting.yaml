@@ -34,10 +34,10 @@ blueprint:
     during full daylight). Wherever that slot's preset would normally be
     applied, the lights are switched off instead; its own brightness
     input then goes unused for that slot.
-    A slot can also be set to one of the **"Light colour — ..."** options —
-    the same whites and colours Home Assistant offers as favourites in a
-    light's own dialog — instead of a scene preset, always at that slot's
-    brightness.
+    A slot can also be set to **"Light colour (pick below)"** or **"White
+    (pick temperature below)"** to show a colour from Home Assistant's
+    colour list, or a white of a chosen temperature, instead of a scene
+    preset — always at that slot's brightness.
 
     - **Motion while already lit**: normally does nothing — a preset someone
     just set by hand (remote, dashboard, voice assistant) is left alone.
@@ -206,24 +206,10 @@ blueprint:
               options:
                 - label: "No preset — turn off"
                   value: "off"
-                - label: "Light colour — Warmest white"
-                  value: "kelvin:1800"
-                - label: "Light colour — Warm white"
-                  value: "kelvin:3400"
-                - label: "Light colour — Neutral white"
-                  value: "kelvin:5000"
-                - label: "Light colour — Cool white"
-                  value: "kelvin:6500"
-                - label: "Light colour — Blue"
-                  value: "rgb:127,172,255"
-                - label: "Light colour — Purple"
-                  value: "rgb:215,150,255"
-                - label: "Light colour — Pink"
-                  value: "rgb:255,158,243"
-                - label: "Light colour — Red"
-                  value: "rgb:255,110,84"
-                - label: "Light colour — Green"
-                  value: "rgb:77,255,0"
+                - label: "Light colour (pick below)"
+                  value: "color"
+                - label: "White (pick temperature below)"
+                  value: "white"
                 # BEGIN generated scene_presets options
                 - label: "Defaults — Rest"
                   value: "e03267e7-9914-4f47-97fe-63c0bd317fe7"
@@ -518,6 +504,28 @@ blueprint:
                 - label: "Sports live — Stadium"
                   value: "f587060a-c4a1-4885-87ff-54c247fb29e6"
                 # END generated scene_presets options
+        day_light_colour:
+          name: Daytime light colour
+          description: >-
+            Only used when the Daytime preset above is "Light colour (pick
+            below)". Always applied at this slot's brightness below.
+          default: orange
+          selector: &ui_color_selector
+            ui_color:
+              include_none: false
+              include_state: false
+        day_white_kelvin:
+          name: Daytime white temperature
+          description: >-
+            Only used when the Daytime preset above is "White (pick
+            temperature below)". Always applied at this slot's brightness
+            below.
+          default: 2700
+          selector: &kelvin_selector
+            color_temp:
+              unit: kelvin
+              min: 2000
+              max: 6500
         day_brightness_pct:
           name: Daytime preset brightness
           description: >-
@@ -628,6 +636,21 @@ blueprint:
           name: Evening preset
           description: Applied after the evening slot starts, until the night slot begins.
           selector: *preset_selector
+        evening_light_colour:
+          name: Evening light colour
+          description: >-
+            Only used when the Evening preset above is "Light colour (pick
+            below)". Always applied at this slot's brightness below.
+          default: orange
+          selector: *ui_color_selector
+        evening_white_kelvin:
+          name: Evening white temperature
+          description: >-
+            Only used when the Evening preset above is "White (pick
+            temperature below)". Always applied at this slot's brightness
+            below.
+          default: 2700
+          selector: *kelvin_selector
         evening_brightness_pct:
           name: Evening preset brightness
           description: >-
@@ -679,6 +702,21 @@ blueprint:
             Applied between the night boundary below and morning begins (set
             next to the Daytime preset above).
           selector: *preset_selector
+        night_light_colour:
+          name: Night light colour
+          description: >-
+            Only used when the Night preset above is "Light colour (pick
+            below)". Always applied at this slot's brightness below.
+          default: orange
+          selector: *ui_color_selector
+        night_white_kelvin:
+          name: Night white temperature
+          description: >-
+            Only used when the Night preset above is "White (pick
+            temperature below)". Always applied at this slot's brightness
+            below.
+          default: 2700
+          selector: *kelvin_selector
         night_brightness_pct:
           name: Night preset brightness
           description: >-
@@ -813,26 +851,52 @@ variables:
   preset_night: !input preset_night
   preset_evening: !input preset_evening
   preset_day: !input preset_day
-  # A "Light colour — ..." option in a preset dropdown is not a scene preset
-  # but HA's own favourite-colour palette, encoded as "kelvin:<K>" or
-  # "rgb:<r>,<g>,<b>". Decoded here into light.turn_on data; empty when the
-  # slot holds a real scene preset (or "off").
+  # "Light colour (pick below)" / "White (pick temperature below)" in a
+  # preset dropdown are not scene presets: they turn the lights on with
+  # light.turn_on in the slot's light colour or white temperature. The
+  # colour picker yields one of HA's named UI colours, mapped here to the
+  # same Material Design shade its swatch shows (greys, black and white
+  # become plain white — a light can't show grey). Decoded below into
+  # light.turn_on data; empty when the slot holds a real scene preset.
+  ui_colour_rgb:
+    primary: [3, 169, 244]
+    accent: [255, 152, 0]
+    red: [244, 67, 54]
+    pink: [233, 30, 99]
+    purple: [156, 39, 176]
+    deep-purple: [103, 58, 183]
+    indigo: [63, 81, 181]
+    blue: [33, 150, 243]
+    light-blue: [3, 169, 244]
+    cyan: [0, 188, 212]
+    teal: [0, 150, 136]
+    green: [76, 175, 80]
+    light-green: [139, 195, 74]
+    lime: [205, 220, 57]
+    yellow: [255, 235, 59]
+    amber: [255, 193, 7]
+    orange: [255, 152, 0]
+    deep-orange: [255, 87, 34]
+    brown: [121, 85, 72]
+  day_light_colour: !input day_light_colour
+  day_white_kelvin: !input day_white_kelvin
   day_colour_data: >-
-    {%- set p = preset_day | string -%}
-    {%- if p.startswith('kelvin:') -%}{{ {'color_temp_kelvin': p[7:] | int} }}
-    {%- elif p.startswith('rgb:') -%}{{ {'rgb_color': p[4:].split(',') | map('int') | list} }}
+    {%- if preset_day == 'color' -%}{{ {'rgb_color': ui_colour_rgb.get(day_light_colour | string, [255, 255, 255])} }}
+    {%- elif preset_day == 'white' -%}{{ {'color_temp_kelvin': day_white_kelvin | int} }}
     {%- else -%}{{ {} }}
     {%- endif -%}
+  evening_light_colour: !input evening_light_colour
+  evening_white_kelvin: !input evening_white_kelvin
   evening_colour_data: >-
-    {%- set p = preset_evening | string -%}
-    {%- if p.startswith('kelvin:') -%}{{ {'color_temp_kelvin': p[7:] | int} }}
-    {%- elif p.startswith('rgb:') -%}{{ {'rgb_color': p[4:].split(',') | map('int') | list} }}
+    {%- if preset_evening == 'color' -%}{{ {'rgb_color': ui_colour_rgb.get(evening_light_colour | string, [255, 255, 255])} }}
+    {%- elif preset_evening == 'white' -%}{{ {'color_temp_kelvin': evening_white_kelvin | int} }}
     {%- else -%}{{ {} }}
     {%- endif -%}
+  night_light_colour: !input night_light_colour
+  night_white_kelvin: !input night_white_kelvin
   night_colour_data: >-
-    {%- set p = preset_night | string -%}
-    {%- if p.startswith('kelvin:') -%}{{ {'color_temp_kelvin': p[7:] | int} }}
-    {%- elif p.startswith('rgb:') -%}{{ {'rgb_color': p[4:].split(',') | map('int') | list} }}
+    {%- if preset_night == 'color' -%}{{ {'rgb_color': ui_colour_rgb.get(night_light_colour | string, [255, 255, 255])} }}
+    {%- elif preset_night == 'white' -%}{{ {'color_temp_kelvin': night_white_kelvin | int} }}
     {%- else -%}{{ {} }}
     {%- endif -%}
   day_brightness_pct: !input day_brightness_pct

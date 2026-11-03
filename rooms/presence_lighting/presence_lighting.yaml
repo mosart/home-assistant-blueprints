@@ -764,17 +764,19 @@ blueprint:
           selector:
             duration:
         transition:
-          name: Dim & switch-off transition
+          name: Fade-out (from dim) to dark
           description: >-
-            How slowly the warning dim and the switch-off fade (also used when
-            a slot's preset is "No preset — turn off"). Turning lights on and
-            adjusting them have their own two transitions below.
-          default: 15
+            How quickly the lights fade when the room goes quiet: first the
+            warning dim, then — after "Switch off after" — out to dark. Also
+            used when a slot's preset is "No preset — turn off". The
+            counterpart of "Fade-in from dark" below; adjusting a lit room has
+            its own transition below that.
+          default: 10
           selector:
             number:
               min: 0
-              max: 30
-              unit_of_measurement: minutes
+              max: 60
+              unit_of_measurement: seconds
               mode: slider
               step: 1
         fade_in_seconds:
@@ -875,11 +877,13 @@ variables:
   day_start_apply_immediately: !input day_start_apply_immediately
   evening_start_use_sunset: !input evening_start_use_sunset
   dim_brightness_pct: !input dim_brightness_pct
-  # The two slow transitions are input in minutes; every light/scene
-  # service call below takes `transition` in seconds, so these are the only
-  # places that conversion happens. The fade-in is input in seconds already.
+  # Every light/scene service call below takes `transition` in seconds. The
+  # fade-out and fade-in are input in seconds already; only the already-lit
+  # transition is input in minutes and converted here. The fade-out keeps its
+  # original input key `transition` (once a 0-30 minute slider) so existing
+  # automations don't lose their setting; it is now read as seconds.
   transition: !input transition
-  transition_seconds: "{{ (transition | float) * 60 }}"
+  transition_seconds: "{{ transition | float }}"
   dim_flag_entity: !input dim_flag
   fade_in_seconds: !input fade_in_seconds
   lit_transition: !input lit_transition

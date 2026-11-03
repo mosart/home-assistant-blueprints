@@ -131,6 +131,20 @@ blueprint:
               multiple: true
               filter:
                 - domain: light
+        lights_exclude:
+          name: Lights to exclude
+          description: >-
+            Lights in the areas above that this automation should leave alone —
+            e.g. a wall tablet's screen exposed as a light. Everything else in
+            the areas is still picked up automatically, including lights you
+            add later. Ignored when "Lights (override)" is set; just leave the
+            light out of that list instead.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: light
         dim_flag:
           name: Dimming flag helper
           description: >-
@@ -841,6 +855,7 @@ max_exceeded: silent
 variables:
   room: !input room
   lights: !input lights
+  lights_exclude: !input lights_exclude
   force_preset_on_motion: !input force_preset_on_motion
   # Exposed as plain variables (rather than only inline `!input` at each
   # call site) so the action `data:` blocks below can build their whole
@@ -940,7 +955,8 @@ variables:
   # when set, every light in the areas otherwise. Resolved at run time, so
   # moving a light between areas is picked up without editing anything.
   #
-  # The derived branch drops light *groups* (an entity whose own state
+  # The derived branch also drops any light listed under "Lights to
+  # exclude", and drops light *groups* (an entity whose own state
   # carries an entity_id attribute listing members, e.g. a Hue room/zone
   # light or a light group helper — or a group_entities attribute, e.g. a
   # ZHA Zigbee group) so a group and its members aren't both snapshotted
@@ -955,7 +971,8 @@ variables:
         | select('match', 'light\.') | list -%}
     {%- set ns = namespace(out=[]) -%}
     {%- for e in candidates -%}
-      {%- if state_attr(e, 'entity_id') is none and state_attr(e, 'group_entities') is none -%}
+      {%- if state_attr(e, 'entity_id') is none and state_attr(e, 'group_entities') is none
+            and e not in lights_exclude -%}
         {%- set ns.out = ns.out + [e] -%}
       {%- endif -%}
     {%- endfor -%}
@@ -978,6 +995,7 @@ variables:
 trigger_variables:
   tv_room: !input room
   tv_lights: !input lights
+  tv_lights_exclude: !input lights_exclude
   tv_dim_flag: !input dim_flag
   tv_dim_after: !input no_motion_dim_after
   tv_off_after: !input no_motion_off_after
@@ -1077,7 +1095,8 @@ triggers:
       {%- else -%}
         {%- set lights = expand(area_ents | select('match', 'light\.') | list)
               | rejectattr('attributes.entity_id', 'defined')
-              | rejectattr('attributes.group_entities', 'defined') | list -%}
+              | rejectattr('attributes.group_entities', 'defined')
+              | rejectattr('entity_id', 'in', tv_lights_exclude) | list -%}
       {%- endif -%}
       {%- set lit = lights | selectattr('state', 'eq', 'on') | list -%}
       {%- set sensors = expand(area_ents | select('match', 'binary_sensor\.') | list)

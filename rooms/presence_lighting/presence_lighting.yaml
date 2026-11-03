@@ -973,6 +973,15 @@ variables:
   # fallback's own read below).
   last_preset_helper: "input_text.{{ room_list | join('_') }}_laatste_preset"
 
+# The "missed switch-off" template trigger below is rendered before the
+# `variables:` above exist, so it gets the inputs it needs from here.
+trigger_variables:
+  tv_room: !input room
+  tv_lights: !input lights
+  tv_dim_flag: !input dim_flag
+  tv_dim_after: !input no_motion_dim_after
+  tv_off_after: !input no_motion_off_after
+
 triggers:
   # Motion and occupancy are two independent purpose-specific families, so a
   # room needs both trigger pairs to react to whichever class its sensor(s)
@@ -1044,6 +1053,54 @@ triggers:
     event: sunrise
     id: morning
     enabled: "{{ day_start_use_sunrise }}"
+  # Safety net for a missed switch-off. The "no motion" triggers above count
+  # down inside Home Assistant, and that countdown is lost whenever the
+  # automation reloads (saving it, re-importing this blueprint, a restart)
+  # mid-way — after which nothing fires again until the next motion, so a
+  # light can stay on all night in an empty room. This template re-checks
+  # once a minute (it uses now()) and fires when a light is still on and
+  # the room has been quiet longer than the normal dim (+ switch-off) delay
+  # plus 2 minutes of slack, so it never races the normal path. "Quiet" is
+  # read the same way the triggers above work: either sensor class
+  # (motion or occupancy) having all its sensors clear counts, so a stuck
+  # motion sensor next to a working occupancy sensor doesn't block it. The
+  # clock starts at whichever came last: the room going quiet, or a light
+  # being switched on — a light switched on in an empty room also goes
+  # through the normal dim and switch-off, just counted from that moment.
+  - trigger: template
+    id: missed_off
+    value_template: >-
+      {%- set rl = [tv_room] if tv_room is string else tv_room -%}
+      {%- set area_ents = rl | map('area_entities') | sum(start=[]) -%}
+      {%- if tv_lights | count > 0 -%}
+        {%- set lights = expand(tv_lights) -%}
+      {%- else -%}
+        {%- set lights = expand(area_ents | select('match', 'light\.') | list)
+              | rejectattr('attributes.entity_id', 'defined')
+              | rejectattr('attributes.group_entities', 'defined') | list -%}
+      {%- endif -%}
+      {%- set lit = lights | selectattr('state', 'eq', 'on') | list -%}
+      {%- set sensors = expand(area_ents | select('match', 'binary_sensor\.') | list)
+            | selectattr('attributes.device_class', 'defined') | list -%}
+      {%- set ns = namespace(quiet=none) -%}
+      {%- for cls in ['motion', 'occupancy'] -%}
+        {%- set s = sensors | selectattr('attributes.device_class', 'eq', cls) | list -%}
+        {%- if s | count > 0 and s | selectattr('state', 'eq', 'on') | list | count == 0 -%}
+          {%- set t = s | map(attribute='last_changed') | max -%}
+          {%- if ns.quiet is none or t < ns.quiet -%}{%- set ns.quiet = t -%}{%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if lit | count > 0 and ns.quiet is not none -%}
+        {%- set since = [ns.quiet, lit | map(attribute='last_changed') | max] | max -%}
+        {%- set dim = timedelta(days=tv_dim_after.days | default(0), hours=tv_dim_after.hours | default(0),
+              minutes=tv_dim_after.minutes | default(0), seconds=tv_dim_after.seconds | default(0)) -%}
+        {%- set off = timedelta(days=tv_off_after.days | default(0), hours=tv_off_after.hours | default(0),
+              minutes=tv_off_after.minutes | default(0), seconds=tv_off_after.seconds | default(0)) -%}
+        {%- set wait = dim + timedelta(minutes=2) if is_state(tv_dim_flag, 'off') else dim + off + timedelta(minutes=2) -%}
+        {{ now() - since > wait }}
+      {%- else -%}
+        false
+      {%- endif -%}
 
 conditions: []
 
@@ -1557,7 +1614,7 @@ actions:
         conditions:
           - condition: trigger
             id: no_motion
-        sequence:
+        sequence: &quiet_sequence
           - alias: Nothing to dim if the room is already dark
             condition: template
             value_template: >-
@@ -1607,6 +1664,27 @@ actions:
           - action: input_boolean.turn_off
             target:
               entity_id: !input dim_flag
+      - alias: A switch-off was missed, so catch up
+        conditions:
+          - condition: trigger
+            id: missed_off
+        sequence:
+          - if:
+              # The warning dim already happened but its switch-off was
+              # lost: the dim has lasted long enough, so go straight to off.
+              - condition: state
+                entity_id: !input dim_flag
+                state: "on"
+            then:
+              - action: light.turn_off
+                target:
+                  entity_id: "{{ light_entities }}"
+                data:
+                  transition: "{{ transition_seconds }}"
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: !input dim_flag
+            else: *quiet_sequence
       - alias: New day begins
         conditions:
           - condition: trigger

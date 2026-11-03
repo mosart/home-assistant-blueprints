@@ -522,14 +522,14 @@ when this toggle is on, so both act the same here).
 
 #### Transitions
 
-Three separate transition times, because "someone just walked in" and "the
-evening is winding down" want opposite speeds:
+Three separate transition times: a quick fade in and out, and a slow
+adjustment when the lights are already on:
 
 | Situation | Input | Default |
 | --- | --- | --- |
 | Motion in a dark room, or in a room this automation dimmed as a warning | **Fade-in from dark** | 3 seconds |
 | Motion in a room whose lights are already on (e.g. easing an evening scene down to the night brightness, or a forced time-of-day preset taking over) | **Transition when already lit** | 5 minutes |
-| The warning dim, the switch-off, and a slot set to "No preset — turn off" | **Dim & switch-off transition** | 15 minutes |
+| The warning dim, the switch-off, and a slot set to "No preset — turn off" | **Fade-out (from dim) to dark** | 10 seconds |
 
 Motion during a slow already-lit fade does not restart it. A light that is
 fading reports its target brightness straight away, so the automation sees

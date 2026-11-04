@@ -599,6 +599,10 @@ streaming app typically reports "paused" or "idle" for a whole evening of
 TV. List those under **Media players that count while on** — the room then
 counts as in use for as long as such a player is on at all, switching it on
 cancels a pending dim, and switching it off starts the normal dim delay.
+Such a player can also stay "paused" long after the TV itself is off, so its
+hold is capped by **Longest hold for a player that is on** (2 hours by
+default): after that long without motion the room dims and switches off
+as usual, whatever the player reports.
 
 ### Scheduled evening dimming
 

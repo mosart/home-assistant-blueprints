@@ -422,7 +422,7 @@ The other combinations never touch an already-lit room.
 
 #### The three time slots
 
-The settings are grouped in collapsible sections. **Room** comes first, then
+The settings are grouped in collapsible sections, all collapsed by default. **Room** comes first, then
 one section per time slot — **Daytime**, **Evening**, **Night** — each laid
 out the same way, then **Dim & switch-off**, **Transitions**, **Media** and
 **Advanced**. Inside a slot the field names start with *When*, *What* or

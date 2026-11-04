@@ -20,6 +20,7 @@ blueprint:
     where:
       name: Room
       icon: mdi:home-search
+      collapsed: true
       description: >-
         Which areas this covers and which lights it controls. Details:
         [README → What it controls](https://github.com/mosart/home-assistant-blueprints#what-it-controls).

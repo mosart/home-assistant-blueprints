@@ -210,6 +210,19 @@ blueprint:
             seconds: 0
           selector:
             duration:
+        media_players_ignore:
+          name: Media players to ignore (optional)
+          description: >-
+            Media players in the areas above whose "playing" should not keep
+            the lights on or cancel a dim — e.g. a duplicate entity for the
+            same device (a Music Assistant or Spotify mirror of a Chromecast)
+            that keeps reporting "playing" after the device itself is off.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: media_player
         force_preset_on_motion:
           name: Always apply time-of-day preset on motion
           description: >-
@@ -969,6 +982,7 @@ variables:
   evening_start_use_sunset: !input evening_start_use_sunset
   media_players_on: !input media_players_on
   media_hold_limit: !input media_hold_limit
+  media_players_ignore: !input media_players_ignore
   # When the room's sensors last went quiet: the earliest moment one sensor
   # class (motion or occupancy) had all its sensors clear — the same reading
   # of "quiet" the triggers use. Empty while every class still detects.
@@ -1070,6 +1084,7 @@ trigger_variables:
   tv_off_after: !input no_motion_off_after
   tv_media_on: !input media_players_on
   tv_media_hold_limit: !input media_hold_limit
+  tv_media_ignore: !input media_players_ignore
 
 triggers:
   # Motion and occupancy are two independent purpose-specific families, so a
@@ -1196,7 +1211,8 @@ triggers:
         {%- endif -%}
       {%- endfor -%}
       {%- set listed = expand(tv_media_on) -%}
-      {%- set area_media = expand(area_ents | select('match', 'media_player\.') | list) -%}
+      {%- set area_media = expand(area_ents | select('match', 'media_player\.') | list)
+            | rejectattr('entity_id', 'in', tv_media_ignore) | list -%}
       {%- set hold = timedelta(days=tv_media_hold_limit.days | default(0), hours=tv_media_hold_limit.hours | default(0),
             minutes=tv_media_hold_limit.minutes | default(0), seconds=tv_media_hold_limit.seconds | default(0)) -%}
       {%- set listed_on = listed | rejectattr('state', 'in', ['off', 'standby', 'unavailable', 'unknown']) | list | count > 0 -%}
@@ -1216,7 +1232,15 @@ triggers:
         false
       {%- endif -%}
 
-conditions: []
+conditions:
+  # An ignored media player starting to play must not restart the
+  # automation (mode: restart would cancel a dim or switch-off in progress).
+  # trigger.entity_id is undefined for the time/sun/template triggers.
+  - alias: Not an ignored media player
+    condition: template
+    value_template: >-
+      {{ trigger.entity_id is not defined
+         or trigger.entity_id not in media_players_ignore }}
 
 actions:
   - choose:
@@ -1749,14 +1773,16 @@ actions:
               {{ expand(light_entities)
                  | selectattr('state', 'eq', 'on')
                  | list | count > 0 }}
-          - condition: not
-            conditions:
-              - condition: media_player.is_playing
-                target:
-                  area_id: !input room
-                options:
-                  for: "00:00:00"
-                  behavior: any
+          # A template rather than media_player.is_playing over the area, so
+          # "Media players to ignore" can be left out.
+          - alias: Not while media is playing in the room
+            condition: template
+            value_template: >-
+              {{ expand(room_list | map('area_entities') | sum(start=[])
+                        | select('match', 'media_player\.') | list)
+                 | rejectattr('entity_id', 'in', media_players_ignore)
+                 | selectattr('state', 'eq', 'playing')
+                 | list | count == 0 }}
           - alias: Not while a "counts while on" media player is on (up to its limit)
             condition: template
             value_template: >-

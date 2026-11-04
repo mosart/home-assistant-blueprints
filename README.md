@@ -302,6 +302,7 @@ fixed scene, this one defers to whatever scene is already in use.
 | Motion while dimmed | Puts back exactly what was on before the dim |
 | No motion (30 min, adjustable) | Dims as a warning, then switches off |
 | Media actively playing in the room | Postpones dimming and switching off. A paused player doesn't. |
+| A listed "counts while on" player (e.g. a Chromecast) is on | Postpones dimming and switching off, even while it reports paused or idle |
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml)
 
@@ -544,11 +545,20 @@ adjustment when the lights are already on:
 
 Motion during a slow already-lit fade does not restart it. A light that is
 fading reports its target brightness straight away, so the automation sees
-it is already heading to the right level and leaves it alone. The one case
-it can't tell is a forced time-of-day preset at its own brightness (there's
-no target brightness to compare): lit lights get that preset re-applied on
-each motion. **Transition when already lit** is capped at 5 minutes, the
-longest transition scene presets accept.
+it is already heading to the right level and leaves it alone.
+**Transition when already lit** is capped at 5 minutes, the longest
+transition scene presets accept.
+
+#### Lights changed by hand
+
+When the lights are already on, motion only adjusts a light that is off the
+slot's level *and* was last changed before the current time slot began. A
+light someone set by hand during this slot — brighter for reading or
+playing the piano, from a remote, dashboard or voice assistant — is left
+alone for the rest of the slot instead of being pulled back on every
+motion. At the next slot boundary (evening → night, say) the automation
+takes over again. A slot whose preset keeps its own brightness is applied
+to a lit room once per slot, not on every motion.
 
 #### Missed switch-offs
 
@@ -579,9 +589,16 @@ before it goes out. Returning motion during the dim window restarts the
 automation, which cancels the pending switch-off and restores the snapshot.
 
 Dimming and switching off are both skipped while a media player in the room
-is actively playing — checked once, when the room first goes quiet. A
-player that's merely paused doesn't hold this back; pause and leave, and the
-room still dims and switches off on schedule.
+is actively playing. A player that's merely paused doesn't hold this back;
+pause and leave, and the room still dims and switches off on schedule. Once
+playback stops, the missed-switch-off check (above) starts the normal dim
+delay from that moment.
+
+Some players never say "playing" while in use: a Chromecast running a
+streaming app typically reports "paused" or "idle" for a whole evening of
+TV. List those under **Media players that count while on** — the room then
+counts as in use for as long as such a player is on at all, switching it on
+cancels a pending dim, and switching it off starts the normal dim delay.
 
 ### Scheduled evening dimming
 

@@ -196,6 +196,20 @@ blueprint:
               multiple: true
               filter:
                 - domain: media_player
+        media_hold_limit:
+          name: Longest hold for a player that is on
+          description: >-
+            A player listed above can stay "paused" for hours after the TV
+            itself is off, which would otherwise keep the lights on all night.
+            So it only holds the lights for this long without any motion; after
+            that the room dims and switches off as usual, whatever the player
+            says. Ignored when no players are listed above.
+          default:
+            hours: 2
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
         force_preset_on_motion:
           name: Always apply time-of-day preset on motion
           description: >-
@@ -954,6 +968,23 @@ variables:
   day_start_apply_immediately: !input day_start_apply_immediately
   evening_start_use_sunset: !input evening_start_use_sunset
   media_players_on: !input media_players_on
+  media_hold_limit: !input media_hold_limit
+  # When the room's sensors last went quiet: the earliest moment one sensor
+  # class (motion or occupancy) had all its sensors clear — the same reading
+  # of "quiet" the triggers use. Empty while every class still detects.
+  room_quiet_since: >-
+    {%- set ents = room_list | map('area_entities') | sum(start=[])
+          | select('match', 'binary_sensor\.') | list -%}
+    {%- set sensors = expand(ents) | selectattr('attributes.device_class', 'defined') | list -%}
+    {%- set ns = namespace(quiet=none) -%}
+    {%- for cls in ['motion', 'occupancy'] -%}
+      {%- set s = sensors | selectattr('attributes.device_class', 'eq', cls) | list -%}
+      {%- if s | count > 0 and s | selectattr('state', 'eq', 'on') | list | count == 0 -%}
+        {%- set t = s | map(attribute='last_changed') | max -%}
+        {%- if ns.quiet is none or t < ns.quiet -%}{%- set ns.quiet = t -%}{%- endif -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ ns.quiet if ns.quiet is not none else '' }}
   # When the current slot began, for "a light changed by hand during this
   # slot is left alone" below. A sunrise/sunset boundary is read from the
   # sun's next rising/setting (already tomorrow's once it has passed) minus
@@ -1038,6 +1069,7 @@ trigger_variables:
   tv_dim_after: !input no_motion_dim_after
   tv_off_after: !input no_motion_off_after
   tv_media_on: !input media_players_on
+  tv_media_hold_limit: !input media_hold_limit
 
 triggers:
   # Motion and occupancy are two independent purpose-specific families, so a
@@ -1165,7 +1197,10 @@ triggers:
       {%- endfor -%}
       {%- set listed = expand(tv_media_on) -%}
       {%- set area_media = expand(area_ents | select('match', 'media_player\.') | list) -%}
-      {%- set busy = (listed | rejectattr('state', 'in', ['off', 'standby', 'unavailable', 'unknown']) | list | count > 0)
+      {%- set hold = timedelta(days=tv_media_hold_limit.days | default(0), hours=tv_media_hold_limit.hours | default(0),
+            minutes=tv_media_hold_limit.minutes | default(0), seconds=tv_media_hold_limit.seconds | default(0)) -%}
+      {%- set listed_on = listed | rejectattr('state', 'in', ['off', 'standby', 'unavailable', 'unknown']) | list | count > 0 -%}
+      {%- set busy = (listed_on and (ns.quiet is none or now() - ns.quiet < hold))
             or (area_media | selectattr('state', 'eq', 'playing') | list | count > 0) -%}
       {%- if lit | count > 0 and ns.quiet is not none and not busy -%}
         {%- set times = [ns.quiet, lit | map(attribute='last_changed') | max]
@@ -1722,12 +1757,16 @@ actions:
                 options:
                   for: "00:00:00"
                   behavior: any
-          - alias: Not while a "counts while on" media player is on
+          - alias: Not while a "counts while on" media player is on (up to its limit)
             condition: template
             value_template: >-
-              {{ expand(media_players_on)
-                 | rejectattr('state', 'in', ['off', 'standby', 'unavailable', 'unknown'])
-                 | list | count == 0 }}
+              {%- set on = expand(media_players_on)
+                    | rejectattr('state', 'in', ['off', 'standby', 'unavailable', 'unknown'])
+                    | list | count > 0 -%}
+              {%- set lim = timedelta(days=media_hold_limit.days | default(0), hours=media_hold_limit.hours | default(0),
+                    minutes=media_hold_limit.minutes | default(0), seconds=media_hold_limit.seconds | default(0)) -%}
+              {{ not on or (room_quiet_since | string | length > 0
+                            and now() - (room_quiet_since | as_datetime) >= lim) }}
           - alias: Remember exactly how the light stands now
             action: scene.create
             data:

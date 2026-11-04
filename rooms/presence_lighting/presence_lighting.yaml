@@ -179,6 +179,23 @@ blueprint:
                     - motion
                     - occupancy
                     - presence
+        media_players_on:
+          name: Media players that count while on (optional)
+          description: >-
+            Media actively playing in the areas above already postpones
+            dimming. Some players don't say "playing" while in use — a
+            Chromecast running a streaming app usually reports "paused" or
+            "idle" the whole time — so a room watching TV still dims. List
+            such players here and the room counts as in use for as long as
+            they are on at all (anything but off/standby/unavailable); once
+            one is switched off, the normal dim delay starts from that
+            moment.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: media_player
         force_preset_on_motion:
           name: Always apply time-of-day preset on motion
           description: >-
@@ -936,6 +953,27 @@ variables:
   day_start_use_sunrise: !input day_start_use_sunrise
   day_start_apply_immediately: !input day_start_apply_immediately
   evening_start_use_sunset: !input evening_start_use_sunset
+  media_players_on: !input media_players_on
+  # When the current slot began, for "a light changed by hand during this
+  # slot is left alone" below. A sunrise/sunset boundary is read from the
+  # sun's next rising/setting (already tomorrow's once it has passed) minus
+  # one day — a few minutes off, which doesn't matter here: it only decides
+  # whether a light that is *not* at the slot's level was changed before or
+  # after the slot began.
+  night_start_time: !input night_start
+  day_start_time: !input day_start
+  evening_start_time: !input evening_start
+  night_started_at: >-
+    {{ today_at(night_start_time) if now() >= today_at(night_start_time)
+       else today_at(night_start_time) - timedelta(days=1) }}
+  evening_started_at: >-
+    {%- set s = state_attr('sun.sun', 'next_setting') -%}
+    {{ (s | as_datetime - timedelta(days=1)) if evening_start_use_sunset and s
+       else today_at(evening_start_time) }}
+  day_started_at: >-
+    {%- set s = state_attr('sun.sun', 'next_rising') -%}
+    {{ (s | as_datetime - timedelta(days=1)) if day_start_use_sunrise and s
+       else today_at(day_start_time) }}
   dim_brightness_pct: !input dim_brightness_pct
   # Every light/scene service call below takes `transition` in seconds. The
   # fade-out and fade-in are input in seconds already; only the already-lit
@@ -999,6 +1037,7 @@ trigger_variables:
   tv_dim_flag: !input dim_flag
   tv_dim_after: !input no_motion_dim_after
   tv_off_after: !input no_motion_off_after
+  tv_media_on: !input media_players_on
 
 triggers:
   # Motion and occupancy are two independent purpose-specific families, so a
@@ -1060,6 +1099,21 @@ triggers:
       for: "00:00:00"
       behavior: each
     id: motion
+  # A listed "counts while on" player being switched on cancels a pending
+  # dim/off countdown, like starting playback does above.
+  - trigger: state
+    entity_id: !input media_players_on
+    from:
+      - "off"
+      - standby
+      - unavailable
+      - unknown
+    not_to:
+      - "off"
+      - standby
+      - unavailable
+      - unknown
+    id: motion
   # The morning boundary, fixed time or sunrise depending on the toggle
   # above — `enabled:` takes a limited template over blueprint inputs, so
   # only the one matching the toggle ever actually attaches.
@@ -1109,8 +1163,14 @@ triggers:
           {%- if ns.quiet is none or t < ns.quiet -%}{%- set ns.quiet = t -%}{%- endif -%}
         {%- endif -%}
       {%- endfor -%}
-      {%- if lit | count > 0 and ns.quiet is not none -%}
-        {%- set since = [ns.quiet, lit | map(attribute='last_changed') | max] | max -%}
+      {%- set listed = expand(tv_media_on) -%}
+      {%- set area_media = expand(area_ents | select('match', 'media_player\.') | list) -%}
+      {%- set busy = (listed | rejectattr('state', 'in', ['off', 'standby', 'unavailable', 'unknown']) | list | count > 0)
+            or (area_media | selectattr('state', 'eq', 'playing') | list | count > 0) -%}
+      {%- if lit | count > 0 and ns.quiet is not none and not busy -%}
+        {%- set times = [ns.quiet, lit | map(attribute='last_changed') | max]
+              + (listed + area_media) | map(attribute='last_changed') | list -%}
+        {%- set since = times | max -%}
         {%- set dim = timedelta(days=tv_dim_after.days | default(0), hours=tv_dim_after.hours | default(0),
               minutes=tv_dim_after.minutes | default(0), seconds=tv_dim_after.seconds | default(0)) -%}
         {%- set off = timedelta(days=tv_off_after.days | default(0), hours=tv_off_after.hours | default(0),
@@ -1159,6 +1219,7 @@ actions:
                         sequence:
                           - variables:
                               slot_preset: "{{ preset_night }}"
+                              slot_started_at: "{{ night_started_at }}"
                               slot_colour_data: "{{ night_colour_data }}"
                               # -1: leave the preset at its own brightness. A
                               # light colour has none, so it always gets the
@@ -1173,8 +1234,12 @@ actions:
                           # light mid-fade already reports its target
                           # brightness, so repeated motion leaves that fade
                           # running instead of restarting it. With the preset's
-                          # own brightness (-1) there's nothing to compare, so
-                          # lit lights are re-applied every time.
+                          # own brightness (-1) there's nothing to compare.
+                          # A lit light that is off the slot's level but was
+                          # changed after this slot began was set by hand
+                          # (remote, dashboard, voice) — it is left alone for
+                          # the rest of the slot instead of being pulled back
+                          # on every motion; the next slot takes over again.
                           - &force_apply_slot
                             if:
                               - condition: template
@@ -1197,8 +1262,9 @@ actions:
                                     {%- if not dimmed_by_us -%}
                                       {%- for s in expand(light_entities) | selectattr('state', 'eq', 'on') -%}
                                         {%- set b = s.attributes.brightness -%}
-                                        {%- if (slot_brightness | int) < 0 or b is none
-                                              or ((b | int) - (slot_brightness | int)) | abs > 2 -%}
+                                        {%- if ((slot_brightness | int) < 0 or b is none
+                                              or ((b | int) - (slot_brightness | int)) | abs > 2)
+                                              and s.last_updated < (slot_started_at | as_datetime) -%}
                                           {%- set ns.out = ns.out + [s.entity_id] -%}
                                         {%- endif -%}
                                       {%- endfor -%}
@@ -1241,6 +1307,7 @@ actions:
                         sequence:
                           - variables:
                               slot_preset: "{{ preset_evening }}"
+                              slot_started_at: "{{ evening_started_at }}"
                               slot_colour_data: "{{ evening_colour_data }}"
                               slot_brightness: >-
                                 {{ evening_brightness if (evening_colour_data | count > 0 or evening_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
@@ -1248,6 +1315,7 @@ actions:
                     default:
                       - variables:
                           slot_preset: "{{ preset_day }}"
+                          slot_started_at: "{{ day_started_at }}"
                           slot_colour_data: "{{ day_colour_data }}"
                           slot_brightness: >-
                             {{ day_brightness if (day_colour_data | count > 0 or day_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
@@ -1584,18 +1652,22 @@ actions:
                         value_template: "{{ night_brightness_mode == 'override_current' }}"
                       - variables:
                           slot_brightness: "{{ night_brightness }}"
+                          slot_started_at: "{{ night_started_at }}"
                       # Shared by all three slots (aliased below). A light mid-fade
                       # already reports its target brightness, so it is skipped here
                       # and repeated motion lets the fade run on instead of restarting
                       # it. Lights still off in a partly lit room are included.
+                      # A light changed after this slot began (by hand) is left
+                      # alone until the next slot — see the forced branch above.
                       - &lit_brightness_sync
                         variables:
                           lit_targets: >-
                             {%- set ns = namespace(out=[]) -%}
                             {%- for s in expand(light_entities) -%}
                               {%- set b = s.attributes.brightness -%}
-                              {%- if s.state != 'on' or b is none
-                                    or ((b | int) - (slot_brightness | int)) | abs > 2 -%}
+                              {%- if (s.state != 'on' or b is none
+                                    or ((b | int) - (slot_brightness | int)) | abs > 2)
+                                    and s.last_updated < (slot_started_at | as_datetime) -%}
                                 {%- set ns.out = ns.out + [s.entity_id] -%}
                               {%- endif -%}
                             {%- endfor -%}
@@ -1619,6 +1691,7 @@ actions:
                         value_template: "{{ evening_brightness_mode == 'override_current' }}"
                       - variables:
                           slot_brightness: "{{ evening_brightness }}"
+                          slot_started_at: "{{ evening_started_at }}"
                       - *lit_brightness_sync
                       - *lit_brightness_apply
                 default:
@@ -1627,6 +1700,7 @@ actions:
                     value_template: "{{ day_brightness_mode == 'override_current' }}"
                   - variables:
                       slot_brightness: "{{ day_brightness }}"
+                      slot_started_at: "{{ day_started_at }}"
                   - *lit_brightness_sync
                   - *lit_brightness_apply
       - alias: Room has gone quiet
@@ -1648,6 +1722,12 @@ actions:
                 options:
                   for: "00:00:00"
                   behavior: any
+          - alias: Not while a "counts while on" media player is on
+            condition: template
+            value_template: >-
+              {{ expand(media_players_on)
+                 | rejectattr('state', 'in', ['off', 'standby', 'unavailable', 'unknown'])
+                 | list | count == 0 }}
           - alias: Remember exactly how the light stands now
             action: scene.create
             data:

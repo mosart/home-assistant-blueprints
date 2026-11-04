@@ -437,7 +437,7 @@ out the same way, then **Dim & switch-off**, **Transitions**, **Media** and
 | **What · Keep the preset's own brightness** | Off by default: the slot's brightness below is applied. A colour or white always uses the slot's brightness. |
 | **What · Brightness** | Daytime 100%, Evening 50%, Night 3% by default. |
 | **How · On motion in a dark room** | *This slot's light*, *Last remote preset* (else this slot's light), or *Last light settings* (else this slot's light) — see the three fallbacks above. Daytime defaults to this slot's light, Evening and Night to the last light settings. |
-| **How · When the slot begins** | *Wait for motion* (default), or *Ease lit lights over*. |
+| **How · When the slot begins** | *Ease lit lights over* (default), or *Wait for motion*. |
 | **How · Slot-start transition** | 0–300 seconds, for *Ease lit lights over*. |
 
 With **Last light settings** and the slot's brightness (the default for

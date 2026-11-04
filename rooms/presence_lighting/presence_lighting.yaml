@@ -442,7 +442,7 @@ blueprint:
           description: >-
             Lights that are still on can ease over to this slot. Lights that
             are off stay off until there is motion.
-          default: wait
+          default: ease
           selector: &at_start_selector
             select:
               mode: dropdown
@@ -508,7 +508,7 @@ blueprint:
           selector: *preset_source_selector
         evening_at_start:
           name: How · When the slot begins
-          default: wait
+          default: ease
           selector: *at_start_selector
         evening_start_transition:
           name: How · Slot-start transition
@@ -556,7 +556,7 @@ blueprint:
           selector: *preset_source_selector
         night_at_start:
           name: How · When the slot begins
-          default: wait
+          default: ease
           selector: *at_start_selector
         night_start_transition:
           name: How · Slot-start transition

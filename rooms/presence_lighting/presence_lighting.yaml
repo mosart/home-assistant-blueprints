@@ -1,130 +1,40 @@
 blueprint:
   name: "[mosart] Presence lighting with scene memory"
   description: >-
-    Presence lighting for one room, written to defer to the scene already in
-    use instead of overriding it.
+    Motion and presence lighting for one room, with three time slots (Daytime,
+    Evening, Night). Each slot sets **when** it begins, **what** light it shows
+    (a scene preset, a colour, a white temperature, or off) and **how** motion
+    and the slot's start treat the room. Lights someone changed by hand are
+    left alone until the next slot; a quiet room dims as a warning, then
+    switches off; playing media keeps the lights on.
 
 
-    - **Motion while the room is dark**: each time slot (Daytime, Evening,
-    Night) has its own **preset on motion** setting — which preset to
-    apply: the time slot preset below; the last **button preset**, i.e. the
-    last preset a paired remote applied; or the **last light settings**, a
-    snapshot of whatever the lights were already doing, colour and all,
-    independent of any preset — plus its own **brightness behaviour**
-    toggle, "Always use this slot's brightness" (default) or "Use preset's
-    own brightness". Button preset and last-light-settings are two
-    deliberately separate memories: a button preset is a preset identity —
-    read from `input_text.<room>_laatste_preset`, the same helper name the
-    `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` and `[mosart] Hue Smart
-    Button (ROM001) via ZHA` blueprints derive from their own **Room**
-    input, so nothing needs wiring by hand — while last-light-settings is a
-    raw attribute snapshot taken the moment the room last went quiet, before
-    any dimming; it also catches a manual colour-picker tweak a preset was
-    never told about, and it is never the dimmed or switched-off state.
-    Either falls back to the time slot preset once there's nothing to
-    restore (no button preset chosen yet, or no snapshot taken yet — a room
-    with no remote simply never has a button preset to fall back on). Each
-    preset's time boundary sits next to it below — morning and evening can
-    each use a fixed clock time or the sun's actual sunrise/sunset.
-
-
-    Any of the three time-slot presets (Daytime/Evening/Night) can instead
-    be set to **"No preset — turn off"** — for a slot where the room
-    should just stay dark regardless of motion (e.g. an outdoor lamp
-    during full daylight). Wherever that slot's preset would normally be
-    applied, the lights are switched off instead; its own brightness
-    input then goes unused for that slot.
-    A slot can also be set to **"Light colour (pick below)"** or **"White
-    (pick temperature below)"** to show a colour from Home Assistant's
-    colour picker, or a white of a chosen temperature, instead of a scene
-    preset — always at that slot's brightness.
-
-    - **Motion while already lit**: normally does nothing — a preset someone
-    just set by hand (remote, dashboard, voice assistant) is left alone.
-    Exception: a slot whose **preset on motion** is "Last light settings"
-    combined with "Always use this slot's brightness" still pins the
-    brightness, without touching what's showing — so a scene picked earlier
-    in the evening still dims for the night instead of staying at whatever
-    brightness it was set to. Every other combination — including "Last
-    light settings" at its own brightness — leaves an already-lit room
-    alone; only that one combination touches it.
-
-    - **Motion while dimmed**: puts back exactly what was on before the dim.
-
-    - **No motion**: dims as a warning, then switches off.
-
-    - **A new day begins**: the button preset memory is forgotten, so the
-    first motion of the day falls through to the time-of-day preset (or a
-    keep-current slot's own snapshot, which a new day leaves alone — see
-    "Apply Daytime preset immediately each morning" below) rather than
-    replaying whatever was picked by remote the day before.
-
-
-    The "Always apply time-of-day preset on motion" toggle (off by default)
-    replaces all of the above with something simpler and more predictable:
-    every motion event applies the Daytime/Evening/Night preset for whatever
-    slot it currently is (still following that slot's own brightness
-    choice — its own, or forced to the slot's brightness input), full stop
-    — regardless of whether the light is already on, what it's currently
-    showing, or why. Turn this on for a room where the light can end up in
-    a state this blueprint never set (e.g. a smart bulb wired behind a
-    physical wall switch, which powers back up at its own default
-    brightness whenever the switch cuts and restores power) and a
-    remembered state would be wrong more often than it would be right.
-
-
-    Media actively playing in the room postpones dimming and switching off,
-    and starting to play cancels a dim or switch-off already in progress —
-    the same as returning motion does, since both share the same trigger.
-    A paused player doesn't postpone anything — pausing something and
-    leaving the room still dims and switches off on schedule.
-
-
-    Pick one or more areas and it takes both the motion/occupancy sensors and
-    the lights from them; an optional override lets you depart from that.
-    Reacts to either class of sensor a room has — useful when a device's
-    motion and occupancy entities behave differently (e.g. one is stuck or
-    unreliable) or when different rooms use different sensor types.
-
-
-    Requires the `scene_presets` custom integration
-    (Hypfer/hass-scene_presets) and one `input_boolean` per instance — see
-    the README.
+    Requires the `scene_presets` custom integration (Hypfer/hass-scene_presets)
+    and one `input_boolean` per room. Full explanation of every setting:
+    [README](https://github.com/mosart/home-assistant-blueprints#presence-lighting-with-scene-memory).
   source_url: https://github.com/mosart/home-assistant-blueprints/blob/main/rooms/presence_lighting/presence_lighting.yaml
   domain: automation
   homeassistant:
     min_version: 2026.7.0
   input:
     where:
-      name: Where
+      name: Room
       icon: mdi:home-search
+      description: >-
+        Which areas this covers and which lights it controls. Details:
+        [README → What it controls](https://github.com/mosart/home-assistant-blueprints#what-it-controls).
       input:
         room:
           name: Rooms
           description: >-
-            The areas this automation covers. Their motion and occupancy sensors
-            drive it (either fires the same behaviour — see the blueprint
-            description), their lights are what it controls, and media players in
-            them postpone dimming and switching off. Pick more than one to treat
-            adjoining spaces as a single room.
-
-
-            This field can't preview which sensors and lights that resolves to —
-            Home Assistant's blueprint editor has no way to show computed results
-            from another field. To check before saving: Settings → Areas → open
-            the area — its entity list is the same one this automation reads,
-            live. Light *groups* shown there are excluded automatically (see
-            "Lights" below); everything else listed is included.
+            Their motion/occupancy sensors, lights and media players drive this
+            automation. Pick several to treat adjoining spaces as one room.
           selector:
             area:
               multiple: true
         lights:
           name: Lights (override)
-          description: >-
-            Leave empty to control every light in the areas above — that is the
-            normal case, and it follows the areas as you move devices between
-            them. Set it only to depart from that: to control a subset, or to
-            reach a light that lives in another area.
+          description: Leave empty to control every light in the rooms above.
           default: []
           selector:
             entity:
@@ -134,11 +44,8 @@ blueprint:
         lights_exclude:
           name: Lights to exclude
           description: >-
-            Lights in the areas above that this automation should leave alone —
-            e.g. a wall tablet's screen exposed as a light. Everything else in
-            the areas is still picked up automatically, including lights you
-            add later. Ignored when "Lights (override)" is set; just leave the
-            light out of that list instead.
+            Lights in the rooms to leave alone (e.g. a tablet screen). Ignored
+            when the override above is set.
           default: []
           selector:
             entity:
@@ -148,116 +55,35 @@ blueprint:
         dim_flag:
           name: Dimming flag helper
           description: >-
-            An `input_boolean` this automation uses to remember that it was the
-            one that dimmed the lights, so returning motion knows to put them
-            back. Needs its own helper per room — do not share one between rooms.
+            An input_boolean of its own for this room; remembers that this
+            automation did the dimming.
           selector:
             entity:
               filter:
                 - domain: input_boolean
-        recovery_sensors:
-          name: Sensors that can drop offline (optional)
-          description: >-
-            Home Assistant does not count a sensor coming back from
-            `unavailable` straight to detected as motion, so if a battery
-            Zigbee sensor drops offline for a while and recovers right as
-            someone walks in, the light stays off. List such sensors here and
-            that recovery counts as motion, exactly like a normal detection.
-            Leave empty if none of the room's sensors do this — the areas
-            above still drive everything else.
-
-
-            This has to be a list of sensors rather than being read from the
-            areas: Home Assistant's state trigger can't target an area.
-          default: []
-          selector:
-            entity:
-              multiple: true
-              filter:
-                - domain: binary_sensor
-                  device_class:
-                    - motion
-                    - occupancy
-                    - presence
-        media_players_on:
-          name: Media players that count while on (optional)
-          description: >-
-            Media actively playing in the areas above already postpones
-            dimming. Some players don't say "playing" while in use — a
-            Chromecast running a streaming app usually reports "paused" or
-            "idle" the whole time — so a room watching TV still dims. List
-            such players here and the room counts as in use for as long as
-            they are on at all (anything but off/standby/unavailable); once
-            one is switched off, the normal dim delay starts from that
-            moment.
-          default: []
-          selector:
-            entity:
-              multiple: true
-              filter:
-                - domain: media_player
-        media_hold_limit:
-          name: Longest hold for a player that is on
-          description: >-
-            A player listed above can stay "paused" for hours after the TV
-            itself is off, which would otherwise keep the lights on all night.
-            So it only holds the lights for this long without any motion; after
-            that the room dims and switches off as usual, whatever the player
-            says. Ignored when no players are listed above.
-          default:
-            hours: 2
-            minutes: 0
-            seconds: 0
-          selector:
-            duration:
-        media_players_ignore:
-          name: Media players to ignore (optional)
-          description: >-
-            Media players in the areas above whose "playing" should not keep
-            the lights on or cancel a dim — e.g. a duplicate entity for the
-            same device (a Music Assistant or Spotify mirror of a Chromecast)
-            that keeps reporting "playing" after the device itself is off.
-          default: []
-          selector:
-            entity:
-              multiple: true
-              filter:
-                - domain: media_player
-        force_preset_on_motion:
-          name: Always apply time-of-day preset on motion
-          description: >-
-            Off by default: motion follows the behaviour described above (put
-            back the snapshot from before a dim, then whichever preset this
-            slot's "preset on motion" setting calls for) — and does nothing
-            at all if the light already appears to be on, unless that setting
-            is "Last light settings" combined with "Always use this slot's
-            brightness".
-
-            Turn this on to skip all of that. Every motion event then applies
-            the Daytime/Evening/Night preset below for whatever slot it
-            currently is, unconditionally — including when the light is
-            already on, and ignoring any button preset or kept light
-            settings — still forcing its brightness input too unless this
-            slot's **brightness behaviour** is "Use preset's own brightness"
-            (that option behaves the same here as it always does; there is
-            no existing state left to keep, so even a "Last light settings"
-            source forces the brightness here exactly like the other two
-            sources do). Use this for a room where the light can be switched
-            or power-cycled outside Home Assistant's control (a physical
-            wall switch on a smart bulb's power is the common case: the
-            bulb comes back at its own default brightness, which this
-            blueprint would otherwise mistake for an intentional state and
-            leave alone).
-          default: false
-          selector:
-            boolean: {}
     daytime:
       name: Daytime
       icon: mdi:weather-sunny
+      collapsed: true
+      description: >-
+        From morning until the evening begins. Details:
+        [README → The three time slots](https://github.com/mosart/home-assistant-blueprints#the-three-time-slots).
       input:
+        day_start_use_sunrise:
+          name: When · Start at sunrise
+          description: Off — start at the fixed time below.
+          default: false
+          selector:
+            boolean: {}
+        day_start:
+          name: When · Fixed start time
+          description: Also the end of the night.
+          default: "07:00:00"
+          selector:
+            time:
         preset_day:
-          name: Daytime preset
-          description: Applied when the room is dark and nothing is remembered.
+          name: What · Light
+          description: A scene preset, a colour or white (pick below), or off.
           selector: &preset_selector
             select:
               mode: dropdown
@@ -563,31 +389,30 @@ blueprint:
                   value: "f587060a-c4a1-4885-87ff-54c247fb29e6"
                 # END generated scene_presets options
         day_light_colour:
-          name: Daytime light colour
-          description: >-
-            Only used when the Daytime preset above is "Light colour (pick
-            below)". Always applied at this slot's brightness below.
+          name: What · Colour
+          description: Only for "Light colour (pick below)".
           default: [255, 110, 84]
           selector: &colour_rgb_selector
             color_rgb: {}
         day_white_kelvin:
-          name: Daytime white temperature
-          description: >-
-            Only used when the Daytime preset above is "White (pick
-            temperature below)". Always applied at this slot's brightness
-            below.
+          name: What · White temperature
+          description: Only for "White (pick temperature below)".
           default: 2700
           selector: &kelvin_selector
             color_temp:
               unit: kelvin
               min: 2000
               max: 6500
-        day_brightness_pct:
-          name: Daytime preset brightness
+        day_own_brightness:
+          name: What · Keep the preset's own brightness
           description: >-
-            Brightness applied to the Daytime preset when the behaviour below
-            calls for it. Defaults to 100% — mornings start at full brightness
-            regardless of what the preset itself carries.
+            Off — use the brightness below. A colour or white always uses the
+            brightness below.
+          default: false
+          selector: &own_brightness_selector
+            boolean: {}
+        day_brightness_pct:
+          name: What · Brightness
           default: 100
           selector: &brightness_pct_selector
             number:
@@ -597,222 +422,158 @@ blueprint:
               mode: slider
               step: 1
         day_preset_source:
-          name: Daytime preset on motion
+          name: How · On motion in a dark room
           description: >-
-            Which preset motion applies during the daytime slot, in a dark
-            room:
-
-            - **Time slot preset** (default): always the Daytime preset
-            below — mornings reliably reset to a fixed look rather than pick
-            up whatever mood was left over from the night before.
-
-            - **Button preset (or time slot preset if none)**: the last
-            preset a paired remote picked, falling back to the Daytime
-            preset if nothing's been picked yet, or once a new day has
-            forgotten it (see "Apply Daytime preset immediately each
-            morning" below).
-
-            - **Last light settings (or time slot preset if none)**: exactly
-            how the lights stood the moment the room last went quiet —
-            colour and all, whether that came from a preset, a remote, or a
-            manual tweak the other two sources were never told about —
-            falling back to the Daytime preset if nothing's been captured
-            yet.
-
-            In a room that's already lit, "Button preset" and "Time slot
-            preset" leave it alone — a preset just set by hand from a
-            remote, dashboard, or voice assistant isn't touched. "Last light
-            settings" is the exception: with "Always use this slot's
-            brightness" below, it still pins the brightness without
-            touching what's showing, so a scene picked earlier in the
-            evening still dims for the night instead of staying at whatever
-            brightness it was set to.
+            The light above, the last preset a remote picked, or exactly how
+            the lights were before the room went quiet.
           default: time_slot
           selector: &preset_source_selector
             select:
               mode: dropdown
               options:
-                - label: "Time slot preset"
+                - label: "This slot's light"
                   value: time_slot
-                - label: "Button preset (or time slot preset if none)"
+                - label: "Last remote preset (else this slot's light)"
                   value: button
-                - label: "Last light settings (or time slot preset if none)"
+                - label: "Last light settings (else this slot's light)"
                   value: last
-        day_own_brightness:
-          name: Daytime preset brightness behaviour
+        day_at_start:
+          name: How · When the slot begins
           description: >-
-            Off by default ("Always use this slot's brightness"): motion
-            pins brightness to the level set above, whichever preset source
-            above provided the colour/scene — mornings reset to a fixed
-            brightness regardless of what that source carries. Turn on
-            ("Use preset's own brightness") to leave whichever preset gets
-            applied at its own brightness instead; the level set above then
-            goes unused for motion in this slot.
-          default: false
-          selector: &own_brightness_selector
-            boolean: {}
-        day_start:
-          name: Morning begins
-          description: >-
-            End of the night slot, and — unless overridden by the toggle below —
-            the fixed time the daytime slot starts.
-          default: "07:00:00"
-          selector:
-            time:
-        day_start_use_sunrise:
-          name: Use sunrise instead
-          description: >-
-            Off by default (the fixed time above applies). Turn on to use the
-            sun's actual sunrise each day instead — the room then always wakes
-            up with first light rather than a clock time that drifts against it
-            across the seasons.
-          default: false
-          selector:
-            boolean: {}
-        day_start_apply_immediately:
-          name: Apply Daytime preset immediately each morning
-          description: >-
-            Off by default: the morning boundary above only forgets the
-            button preset (see "A new day begins" in the blueprint
-            description) — the room keeps whatever it was already showing
-            until its own first motion of the day applies the Daytime
-            preset.
-
-            Turn this on to apply the Daytime preset the moment the slot
-            starts instead, whether or not anyone's there — useful for
-            simulating presence while away.
-          default: false
-          selector:
-            boolean: {}
+            Lights that are still on can ease over to this slot. Lights that
+            are off stay off until there is motion.
+          default: wait
+          selector: &at_start_selector
+            select:
+              mode: dropdown
+              options:
+                - label: "Wait for motion"
+                  value: wait
+                - label: "Ease lit lights over (time below)"
+                  value: ease
+        day_start_transition:
+          name: How · Slot-start transition
+          description: Only for "Ease lit lights over".
+          default: 120
+          selector: &start_transition_selector
+            number:
+              min: 0
+              max: 300
+              unit_of_measurement: seconds
+              mode: slider
+              step: 5
     evening:
       name: Evening
       icon: mdi:weather-sunset
+      collapsed: true
+      description: >-
+        From the evening start until the night begins. Same fields as Daytime.
       input:
-        preset_evening:
-          name: Evening preset
-          description: Applied after the evening slot starts, until the night slot begins.
-          selector: *preset_selector
-        evening_light_colour:
-          name: Evening light colour
-          description: >-
-            Only used when the Evening preset above is "Light colour (pick
-            below)". Always applied at this slot's brightness below.
-          default: [255, 110, 84]
-          selector: *colour_rgb_selector
-        evening_white_kelvin:
-          name: Evening white temperature
-          description: >-
-            Only used when the Evening preset above is "White (pick
-            temperature below)". Always applied at this slot's brightness
-            below.
-          default: 2700
-          selector: *kelvin_selector
-        evening_brightness_pct:
-          name: Evening preset brightness
-          description: >-
-            Brightness applied to the Evening preset when the behaviour below
-            calls for it. Defaults to 50%.
-          default: 50
-          selector: *brightness_pct_selector
-        evening_preset_source:
-          name: Evening preset on motion
-          description: >-
-            Same three sources as the Daytime slot above — see its
-            description for what each one does. Defaults to "Last light
-            settings", so a scene picked during the day carries into the
-            evening instead of being overridden.
-          default: last
-          selector: *preset_source_selector
-        evening_own_brightness:
-          name: Evening preset brightness behaviour
-          description: >-
-            Same choice as the Daytime slot above — see its description.
-            Off by default: the evening slot dims whatever's showing to the
-            brightness set above instead of leaving it at the daytime level.
-          default: false
-          selector: *own_brightness_selector
-        evening_start:
-          name: Evening begins
-          description: >-
-            Unless overridden by the toggle below, the fixed time the evening
-            slot starts.
-          default: "18:00:00"
-          selector:
-            time:
         evening_start_use_sunset:
-          name: Use sunset instead
-          description: >-
-            On by default, matching this blueprint's original behaviour: the
-            evening slot starts at the sun's actual sunset each day rather than
-            the fixed time above. Turn off to use a fixed clock time instead.
+          name: When · Start at sunset
+          description: Off — start at the fixed time below.
           default: true
           selector:
             boolean: {}
+        evening_start:
+          name: When · Fixed start time
+          default: "18:00:00"
+          selector:
+            time:
+        preset_evening:
+          name: What · Light
+          selector: *preset_selector
+        evening_light_colour:
+          name: What · Colour
+          description: Only for "Light colour (pick below)".
+          default: [255, 110, 84]
+          selector: *colour_rgb_selector
+        evening_white_kelvin:
+          name: What · White temperature
+          description: Only for "White (pick temperature below)".
+          default: 2700
+          selector: *kelvin_selector
+        evening_own_brightness:
+          name: What · Keep the preset's own brightness
+          description: Off — use the brightness below.
+          default: false
+          selector: *own_brightness_selector
+        evening_brightness_pct:
+          name: What · Brightness
+          default: 50
+          selector: *brightness_pct_selector
+        evening_preset_source:
+          name: How · On motion in a dark room
+          default: last
+          selector: *preset_source_selector
+        evening_at_start:
+          name: How · When the slot begins
+          default: wait
+          selector: *at_start_selector
+        evening_start_transition:
+          name: How · Slot-start transition
+          description: Only for "Ease lit lights over".
+          default: 120
+          selector: *start_transition_selector
     night:
       name: Night
       icon: mdi:weather-night
+      collapsed: true
+      description: >-
+        From the night start until the morning (Daytime) begins. Same fields
+        as Daytime.
       input:
-        preset_night:
-          name: Night preset
-          description: >-
-            Applied between the night boundary below and morning begins (set
-            next to the Daytime preset above).
-          selector: *preset_selector
-        night_light_colour:
-          name: Night light colour
-          description: >-
-            Only used when the Night preset above is "Light colour (pick
-            below)". Always applied at this slot's brightness below.
-          default: [255, 110, 84]
-          selector: *colour_rgb_selector
-        night_white_kelvin:
-          name: Night white temperature
-          description: >-
-            Only used when the Night preset above is "White (pick
-            temperature below)". Always applied at this slot's brightness
-            below.
-          default: 2700
-          selector: *kelvin_selector
-        night_brightness_pct:
-          name: Night preset brightness
-          description: >-
-            Brightness applied to the Night preset when the behaviour below
-            calls for it. Defaults to 3% — a preset picked for its colour (e.g.
-            a warm "Nightlight" look) doesn't necessarily come with a brightness
-            that actually reads as dim once applied, so this pins it down
-            independently of whichever preset is selected above.
-          default: 3
-          selector: *brightness_pct_selector
-        night_preset_source:
-          name: Night preset on motion
-          description: >-
-            Same three sources as the Daytime slot above — see its
-            description for what each one does. Defaults to "Last light
-            settings", so a room that's kept its evening scene into the
-            night still shows it, just dimmed.
-          default: last
-          selector: *preset_source_selector
-        night_own_brightness:
-          name: Night preset brightness behaviour
-          description: >-
-            Same choice as the Daytime slot above — see its description.
-            Off by default: the night slot dims whatever's showing to the
-            brightness set above instead of leaving it at the evening level.
-          default: false
-          selector: *own_brightness_selector
         night_start:
-          name: Night begins
-          description: Start of the night slot.
+          name: When · Start time
           default: "23:00:00"
           selector:
             time:
+        preset_night:
+          name: What · Light
+          selector: *preset_selector
+        night_light_colour:
+          name: What · Colour
+          description: Only for "Light colour (pick below)".
+          default: [255, 110, 84]
+          selector: *colour_rgb_selector
+        night_white_kelvin:
+          name: What · White temperature
+          description: Only for "White (pick temperature below)".
+          default: 2700
+          selector: *kelvin_selector
+        night_own_brightness:
+          name: What · Keep the preset's own brightness
+          description: Off — use the brightness below.
+          default: false
+          selector: *own_brightness_selector
+        night_brightness_pct:
+          name: What · Brightness
+          default: 3
+          selector: *brightness_pct_selector
+        night_preset_source:
+          name: How · On motion in a dark room
+          default: last
+          selector: *preset_source_selector
+        night_at_start:
+          name: How · When the slot begins
+          default: wait
+          selector: *at_start_selector
+        night_start_transition:
+          name: How · Slot-start transition
+          description: Only for "Ease lit lights over".
+          default: 120
+          selector: *start_transition_selector
     dim_behaviour:
-      name: Dim & switch-off behaviour
+      name: Dim & switch-off
       icon: mdi:brightness-4
+      collapsed: true
+      description: >-
+        What happens when nobody moves. Details:
+        [README → Missed switch-offs](https://github.com/mosart/home-assistant-blueprints#missed-switch-offs).
       input:
         no_motion_dim_after:
           name: Dim after
-          description: How long the room must be free of motion before dimming.
+          description: No motion for this long.
           default:
             hours: 0
             minutes: 30
@@ -821,11 +582,7 @@ blueprint:
             duration:
         dim_brightness_pct:
           name: Dim by
-          description: >-
-            How much dimmer the warning makes the lights, as a percentage of
-            their current brightness rather than a fixed target — a light
-            already very dim only drops a little further, so the warning can
-            never end up brighter than it was.
+          description: Relative to the current brightness, so it never brightens.
           default: 50
           selector:
             number:
@@ -843,28 +600,17 @@ blueprint:
             seconds: 0
           selector:
             duration:
-        transition:
-          name: Fade-out (from dim) to dark
-          description: >-
-            How quickly the lights fade when the room goes quiet: first the
-            warning dim, then — after "Switch off after" — out to dark. Also
-            used when a slot's preset is "No preset — turn off". The
-            counterpart of "Fade-in from dark" below; adjusting a lit room has
-            its own transition below that.
-          default: 10
-          selector:
-            number:
-              min: 0
-              max: 60
-              unit_of_measurement: seconds
-              mode: slider
-              step: 1
+    transitions:
+      name: Transitions
+      icon: mdi:transition
+      collapsed: true
+      description: >-
+        How fast lights change. Details:
+        [README → Transitions](https://github.com/mosart/home-assistant-blueprints#transitions).
+      input:
         fade_in_seconds:
           name: Fade-in from dark
-          description: >-
-            How quickly motion brings a dark room — or one this automation
-            dimmed as a warning — up to its preset, snapshot or brightness.
-            Keep it short: someone just walked in.
+          description: Motion in a dark (or warning-dimmed) room.
           default: 3
           selector:
             number:
@@ -876,12 +622,8 @@ blueprint:
         lit_transition:
           name: Transition when already lit
           description: >-
-            How slowly motion adjusts a room whose lights are already on — e.g.
-            easing an evening scene down to the night brightness, or a forced
-            time-of-day preset taking over. Motion during this fade does not
-            restart it: lights already on their way to the target are left
-            alone. Capped at 5 minutes, the longest transition scene presets
-            accept.
+            Motion adjusting lights that are already on. Not restarted by
+            further motion.
           default: 5
           selector:
             number:
@@ -890,6 +632,85 @@ blueprint:
               unit_of_measurement: minutes
               mode: slider
               step: 1
+        transition:
+          name: Fade-out (from dim) to dark
+          description: The warning dim, the switch-off, and a slot set to off.
+          default: 10
+          selector:
+            number:
+              min: 0
+              max: 60
+              unit_of_measurement: seconds
+              mode: slider
+              step: 1
+    media:
+      name: Media
+      icon: mdi:television-play
+      collapsed: true
+      description: >-
+        Media playing in the rooms keeps the lights on. Details:
+        [README](https://github.com/mosart/home-assistant-blueprints#presence-lighting-with-scene-memory).
+      input:
+        media_players_on:
+          name: Players that count while on
+          description: >-
+            For players that report "paused"/"idle" while in use (e.g. a
+            Chromecast): on at all = room in use.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: media_player
+        media_hold_limit:
+          name: Longest hold for those players
+          description: After this long without motion the room dims anyway.
+          default:
+            hours: 2
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
+        media_players_ignore:
+          name: Players to ignore
+          description: >-
+            Their "playing" never keeps the lights on (e.g. a duplicate entity
+            of the same device).
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: media_player
+    advanced:
+      name: Advanced
+      icon: mdi:cog
+      collapsed: true
+      input:
+        recovery_sensors:
+          name: Sensors that can drop offline
+          description: >-
+            A sensor coming back from unavailable straight to detected then
+            counts as motion.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: binary_sensor
+                  device_class:
+                    - motion
+                    - occupancy
+                    - presence
+        force_preset_on_motion:
+          name: Always apply the slot's light on motion
+          description: >-
+            Ignore memory: every motion applies the current slot's light, also
+            when already on (lights changed by hand this slot excepted). For a
+            bulb behind a wall switch.
+          default: false
+          selector:
+            boolean: {}
 
 # restart: returning motion during the dim window must pre-empt the pending
 # switch-off, and a fresh no-motion cycle must supersede the previous one.
@@ -978,7 +799,6 @@ variables:
        else ('keep_own' if night_own_brightness else 'override_current') }}
   night_brightness: "{{ ((night_brightness_pct | float) * 255 / 100) | round | int }}"
   day_start_use_sunrise: !input day_start_use_sunrise
-  day_start_apply_immediately: !input day_start_apply_immediately
   evening_start_use_sunset: !input evening_start_use_sunset
   media_players_on: !input media_players_on
   media_hold_limit: !input media_hold_limit
@@ -1019,6 +839,26 @@ variables:
     {%- set s = state_attr('sun.sun', 'next_rising') -%}
     {{ (s | as_datetime - timedelta(days=1)) if day_start_use_sunrise and s
        else today_at(day_start_time) }}
+  # Which slot it is now. Templates rather than native time/sun conditions
+  # switched by `enabled:` — an `enabled:` template can't see these inputs,
+  # so the sunrise/sunset toggles never took effect that way. Sun boundaries
+  # read sun.sun: the next rising is still today until today's sunrise has
+  # passed, and the next setting is already tomorrow once today's sunset has.
+  is_night: >-
+    {%- set r = state_attr('sun.sun', 'next_rising') -%}
+    {%- set before_morning = ((r | as_datetime | as_local).date() == now().date())
+          if day_start_use_sunrise and r else now() < today_at(day_start_time) -%}
+    {{ now() >= today_at(night_start_time) or before_morning }}
+  is_evening: >-
+    {%- set s = state_attr('sun.sun', 'next_setting') -%}
+    {{ ((s | as_datetime | as_local).date() > now().date())
+       if evening_start_use_sunset and s else now() >= today_at(evening_start_time) }}
+  day_at_start: !input day_at_start
+  evening_at_start: !input evening_at_start
+  night_at_start: !input night_at_start
+  day_start_transition: !input day_start_transition
+  evening_start_transition: !input evening_start_transition
+  night_start_transition: !input night_start_transition
   dim_brightness_pct: !input dim_brightness_pct
   # Every light/scene service call below takes `transition` in seconds. The
   # fade-out and fade-in are input in seconds already; only the already-lit
@@ -1161,17 +1001,23 @@ triggers:
       - unavailable
       - unknown
     id: motion
-  # The morning boundary, fixed time or sunrise depending on the toggle
-  # above — `enabled:` takes a limited template over blueprint inputs, so
-  # only the one matching the toggle ever actually attaches.
+  # Slot boundaries. Both the fixed-time and the sun variant always attach;
+  # the condition below keeps only the one the room is set to.
   - trigger: time
     at: !input day_start
     id: morning
-    enabled: "{{ not day_start_use_sunrise }}"
   - trigger: sun
     event: sunrise
     id: morning
-    enabled: "{{ day_start_use_sunrise }}"
+  - trigger: time
+    at: !input evening_start
+    id: evening_start
+  - trigger: sun
+    event: sunset
+    id: evening_start
+  - trigger: time
+    at: !input night_start
+    id: night_start
   # Safety net for a missed switch-off. The "no motion" triggers above count
   # down inside Home Assistant, and that countdown is lost whenever the
   # automation reloads (saving it, re-importing this blueprint, a restart)
@@ -1241,6 +1087,26 @@ conditions:
     value_template: >-
       {{ trigger.entity_id is not defined
          or trigger.entity_id not in media_players_ignore }}
+  # A slot boundary only runs when it has something to do — otherwise it
+  # would needlessly restart (and so cancel) a dim already in progress.
+  # Easing needs a light that is on and no warning dim of ours under way.
+  - alias: Only the slot boundary this room uses, and only with work to do
+    condition: template
+    value_template: >-
+      {%- set lit = expand(light_entities) | selectattr('state', 'eq', 'on') | list | count > 0 -%}
+      {%- set can_ease = lit and is_state(dim_flag_entity, 'off') -%}
+      {%- if trigger.id == 'morning' -%}
+        {{ (trigger.platform == 'sun') == day_start_use_sunrise
+           and (states(last_preset_helper) not in ['', 'unknown']
+                or (day_at_start == 'ease' and can_ease)) }}
+      {%- elif trigger.id == 'evening_start' -%}
+        {{ (trigger.platform == 'sun') == evening_start_use_sunset
+           and evening_at_start == 'ease' and can_ease }}
+      {%- elif trigger.id == 'night_start' -%}
+        {{ night_at_start == 'ease' and can_ease }}
+      {%- else -%}
+        true
+      {%- endif -%}
 
 actions:
   - choose:
@@ -1265,16 +1131,8 @@ actions:
                       - alias: Night
                         conditions:
                           - &is_night_now
-                            condition: or
-                            conditions:
-                              - condition: time
-                                after: !input night_start
-                              - condition: time
-                                before: !input day_start
-                                enabled: "{{ not day_start_use_sunrise }}"
-                              - condition: sun
-                                before: sunrise
-                                enabled: "{{ day_start_use_sunrise }}"
+                            condition: template
+                            value_template: "{{ is_night }}"
                         sequence:
                           - variables:
                               slot_preset: "{{ preset_night }}"
@@ -1355,14 +1213,8 @@ actions:
                       - alias: Evening
                         conditions:
                           - &is_evening_now
-                            condition: or
-                            conditions:
-                              - condition: time
-                                after: !input evening_start
-                                enabled: "{{ not evening_start_use_sunset }}"
-                              - condition: sun
-                                after: sunset
-                                enabled: "{{ evening_start_use_sunset }}"
+                            condition: template
+                            value_template: "{{ is_evening }}"
                         sequence:
                           - variables:
                               slot_preset: "{{ preset_evening }}"
@@ -1598,11 +1450,8 @@ actions:
                                              {'preset_id': preset_evening, 'targets': {'entity_id': light_entities}, 'transition': fade_in_seconds | float}
                                              | combine({'brightness': evening_brightness} if evening_brightness_mode != 'keep_own' else {}) }}
                     default:
-                      # Daytime. Anchored so the "New day begins" branch
-                      # further down can replay exactly this resolution when
-                      # "Apply Daytime preset immediately each morning" is on.
-                      - &daytime_dark_resolve
-                        choose:
+                      # Daytime.
+                      - choose:
                           - alias: Time-of-day preset
                             conditions:
                               - condition: template
@@ -1870,9 +1719,94 @@ actions:
                       value: ""
           - if:
               - condition: template
-                value_template: "{{ day_start_apply_immediately }}"
+                value_template: "{{ day_at_start == 'ease' }}"
             then:
-              # Replays the exact same resolution a motion event would use
-              # for the Daytime slot — reused via anchor so the two can
-              # never drift apart.
-              - *daytime_dark_resolve
+              - variables:
+                  slot_preset: "{{ preset_day }}"
+                  slot_colour_data: "{{ day_colour_data }}"
+                  slot_source: "{{ day_preset_source }}"
+                  ease_seconds: "{{ day_start_transition }}"
+                  slot_brightness: >-
+                    {{ day_brightness if (day_colour_data | count > 0 or day_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
+              # Lit lights ease over to the new slot; lights that are off
+              # stay off — switching lights on in an empty room is not this
+              # automation's job. What they ease to follows the slot's
+              # "On motion" choice: its own light (also for a remote preset,
+              # whose memory a new day has just cleared), or — for "Last light
+              # settings" — only the slot's brightness, keeping the colour.
+              - &ease_to_slot
+                if:
+                  - condition: template
+                    value_template: "{{ is_state(dim_flag_entity, 'off') }}"
+                then:
+                  - variables:
+                      ease_targets: >-
+                        {{ expand(light_entities) | selectattr('state', 'eq', 'on')
+                           | map(attribute='entity_id') | list }}
+                      ease_preset: >-
+                        {{ states(last_preset_helper)
+                           if (slot_source == 'button' and not force_preset_on_motion
+                               and states(last_preset_helper) not in ['', 'unknown', 'unavailable'])
+                           else slot_preset }}
+                      ease_colour: "{{ slot_colour_data if ease_preset == slot_preset else {} }}"
+                  - condition: template
+                    value_template: "{{ ease_targets | count > 0 }}"
+                  - choose:
+                      - alias: Keep what's showing, only take the slot's brightness
+                        conditions:
+                          - condition: template
+                            value_template: "{{ slot_source == 'last' and not force_preset_on_motion }}"
+                        sequence:
+                          - if:
+                              - condition: template
+                                value_template: "{{ (slot_brightness | int) >= 0 }}"
+                            then:
+                              - action: light.turn_on
+                                target:
+                                  entity_id: "{{ ease_targets }}"
+                                data:
+                                  brightness: "{{ slot_brightness }}"
+                                  transition: "{{ ease_seconds }}"
+                      - alias: Slot is set to off
+                        conditions:
+                          - condition: template
+                            value_template: "{{ ease_preset == 'off' }}"
+                        sequence:
+                          - action: light.turn_off
+                            target:
+                              entity_id: "{{ ease_targets }}"
+                            data:
+                              transition: "{{ ease_seconds }}"
+                    default:
+                      - action: "{{ 'light.turn_on' if ease_colour | count > 0 else 'scene_presets.apply_preset' }}"
+                        data: >-
+                          {{ {'entity_id': ease_targets, 'brightness': slot_brightness | int, 'transition': ease_seconds | float} | combine(ease_colour)
+                             if ease_colour | count > 0 else
+                             {'preset_id': ease_preset, 'targets': {'entity_id': ease_targets}, 'transition': [ease_seconds | float, 300] | min}
+                             | combine({'brightness': slot_brightness | int} if (slot_brightness | int) >= 0 else {}) }}
+      - alias: The evening begins
+        conditions:
+          - condition: trigger
+            id: evening_start
+        sequence:
+          - variables:
+              slot_preset: "{{ preset_evening }}"
+              slot_colour_data: "{{ evening_colour_data }}"
+              slot_source: "{{ evening_preset_source }}"
+              ease_seconds: "{{ evening_start_transition }}"
+              slot_brightness: >-
+                {{ evening_brightness if (evening_colour_data | count > 0 or evening_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
+          - *ease_to_slot
+      - alias: The night begins
+        conditions:
+          - condition: trigger
+            id: night_start
+        sequence:
+          - variables:
+              slot_preset: "{{ preset_night }}"
+              slot_colour_data: "{{ night_colour_data }}"
+              slot_source: "{{ night_preset_source }}"
+              ease_seconds: "{{ night_start_transition }}"
+              slot_brightness: >-
+                {{ night_brightness if (night_colour_data | count > 0 or night_brightness_mode not in ['slot_only', 'button_own', 'keep_own']) else -1 }}
+          - *ease_to_slot

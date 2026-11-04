@@ -604,6 +604,10 @@ hold is capped by **Longest hold for a player that is on** (2 hours by
 default): after that long without motion the room dims and switches off
 as usual, whatever the player reports.
 
+**Media players to ignore** leaves players out of all of this — for a
+duplicate entity of the same device (a Music Assistant or Spotify mirror of a
+Chromecast, say) that keeps reporting "playing" after the device is off.
+
 ### Scheduled evening dimming
 
 Two-step evening dim for a set of areas — select every area to cover the

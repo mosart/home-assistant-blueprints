@@ -297,12 +297,13 @@ fixed scene, this one defers to whatever scene is already in use.
 
 | Situation | Behaviour |
 | --- | --- |
-| Motion, room dark | Depends on the current time slot's preset behaviour (below): restores the room's last known state (falling back to the last preset a remote applied, then to that slot's own preset) and pins its brightness to the slot's level, or always applies that slot's own preset instead, with or without a brightness override |
-| Motion, room already lit | Normally nothing — a preset set by hand is left alone. Exception: a slot behaviour of "Keep whichever preset is already showing, just fix its brightness" still pins the brightness to that slot's level, without touching the preset |
+| Motion, room dark | Depends on the current time slot's **How · On motion in a dark room** (below): the slot's own light, the last preset a remote applied, or the room's last light settings — at the slot's brightness unless the slot keeps the preset's own |
+| Motion, room already lit | Normally nothing. With "Last light settings" at the slot's brightness, brightness follows the slot without touching the scene. A light changed by hand during the slot is always left alone |
 | Motion while dimmed | Puts back exactly what was on before the dim |
 | No motion (30 min, adjustable) | Dims as a warning, then switches off |
 | Media actively playing in the room | Postpones dimming and switching off. A paused player doesn't. |
-| A listed "counts while on" player (e.g. a Chromecast) is on | Postpones dimming and switching off, even while it reports paused or idle |
+| A listed "counts while on" player (e.g. a Chromecast) is on | Postpones dimming and switching off, even while it reports paused or idle (up to a limit) |
+| A new time slot begins | Optional: lights that are still on ease over to the new slot. Lights that are off stay off |
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml)
 
@@ -407,96 +408,64 @@ and stops at the first answer:
    else.
 
 Whichever of the three ends up applied, its brightness is then pinned to
-that slot's own brightness input — see "The three time slots" below. The
-other two preset behaviour modes skip this chain entirely and always apply
-that slot's own preset instead.
+that slot's own brightness input — see "The three time slots" below. This
+chain runs for "Last light settings"; "Last remote preset" starts at step 2,
+and "This slot's light" skips it entirely.
 
-This same "keep whichever preset is already showing, just fix its
-brightness" mode also acts when motion arrives in a room that's **already
+"Last light settings" at the slot's brightness also acts when motion arrives in a room that's **already
 lit** — a preset a remote, dashboard, or voice assistant just set by hand.
 The three fallbacks above don't run again in that case (there's nothing to
 restore; the preset is already showing), but its brightness is still pinned
 to the current slot's level, so a scene picked earlier in the evening still
 dims for the night instead of staying at whatever brightness it was set to.
-The other two preset behaviour modes never touch an already-lit room.
+The other combinations never touch an already-lit room.
 
 #### The three time slots
 
-Each preset has its own boundary input directly below it:
+The settings are grouped in collapsible sections. **Room** comes first, then
+one section per time slot — **Daytime**, **Evening**, **Night** — each laid
+out the same way, then **Dim & switch-off**, **Transitions**, **Media** and
+**Advanced**. Inside a slot the field names start with *When*, *What* or
+*How*:
 
-| Preset | Boundary | Default |
-| --- | --- | --- |
-| Daytime | **Morning begins** | 07:00, fixed time |
-| Evening | **Evening begins** | Sun's sunset (toggle to switch to a fixed time) |
-| Night | **Night begins** | 23:00, fixed time |
+| Field | What it does |
+| --- | --- |
+| **When · Start at sunrise / sunset** | Daytime and Evening only: follow the sun instead of the fixed time below. Off for Daytime, on for Evening by default. |
+| **When · Fixed start time** | Daytime 07:00, Evening 18:00, Night 23:00 by default. Daytime's start is also the end of the night. |
+| **What · Light** | A scene preset, **Light colour (pick below)**, **White (pick temperature below)**, or **No preset — turn off** (the room stays dark in that slot, e.g. an outdoor lamp in daylight). |
+| **What · Colour** / **What · White temperature** | Only used for the matching choice above; ignored otherwise. |
+| **What · Keep the preset's own brightness** | Off by default: the slot's brightness below is applied. A colour or white always uses the slot's brightness. |
+| **What · Brightness** | Daytime 100%, Evening 50%, Night 3% by default. |
+| **How · On motion in a dark room** | *This slot's light*, *Last remote preset* (else this slot's light), or *Last light settings* (else this slot's light) — see the three fallbacks above. Daytime defaults to this slot's light, Evening and Night to the last light settings. |
+| **How · When the slot begins** | *Wait for motion* (default), or *Ease lit lights over*. |
+| **How · Slot-start transition** | 0–300 seconds, for *Ease lit lights over*. |
 
-**Morning begins** and **Evening begins** each come with a toggle —
-**Use sunrise instead** / **Use sunset instead** — to follow the sun rather
-than a clock time that drifts against it across the seasons. Evening's
-toggle is *on* by default (matching this blueprint's original behaviour,
-sunset-only); morning's is *off* by default (a fixed time, as before). Night
-has no such toggle — it only ever uses **Night begins**, a fixed time.
+With **Last light settings** and the slot's brightness (the default for
+Evening and Night), motion in a room that's already lit keeps whatever scene
+is showing and only brings its brightness to the slot's level — a scene
+picked earlier in the evening still dims for the night without losing the
+scene itself. With **Keep the preset's own brightness** on, a lit room is
+left entirely alone. A Hue-style preset is mostly about colour, not
+brightness, which is why the slot's brightness is applied by default.
 
-Each of the three presets also has its own **brightness** input and
-**preset behaviour** dropdown next to it:
+**When the slot begins.** With *Ease lit lights over*, lights that are still
+on at the slot boundary move over to the new slot in the given time — the
+slot's light (and brightness), or with *Last light settings* only the slot's
+brightness, keeping the colour. Lights that are **off** stay off until there
+is motion: this blueprint never switches a light on in an empty room (a
+vacation or presence-simulation automation is the place for that). A light
+changed by hand in the previous slot eases over too — the new slot takes
+over. Scene presets accept at most 300 seconds, hence the slider's range.
+At the morning boundary the remote's preset memory is also forgotten first,
+so a new day doesn't replay yesterday's remote choice.
 
-| Preset | Brightness | Default behaviour |
-| --- | --- | --- |
-| Daytime | 100% | Always use this preset, at the brightness above |
-| Evening | 50% | Keep whichever preset is already showing, just fix its brightness |
-| Night | 3% | Keep whichever preset is already showing, just fix its brightness |
+A blueprint can't show HA's dashboard-style colour swatches or the presets'
+thumbnails — there is no blueprint selector for either — hence a dropdown
+plus the two pickers. Nor can a field be hidden depending on another one, so
+the colour and white fields are always visible and simply ignored unless
+chosen.
 
-**Preset behaviour** has three options, the same set for all three slots:
-
-- **Always use this preset, at the brightness above** — ignores memory
-  entirely and applies that slot's own preset, pinned to its brightness
-  input. This is the Daytime default: mornings reliably reset to a fixed
-  look rather than pick up whatever mood was left over from the previous
-  evening.
-- **Always use this preset, at its own brightness** — the same, but leaves
-  the preset's own brightness untouched; nothing overrides it.
-- **Keep whichever preset is already showing, just fix its brightness** —
-  in a dark room, restores the room's memory (the three fallbacks above),
-  then pins whichever brightness that leaves the room at to the slot's
-  brightness input, without changing which preset/colour it is. In an
-  already-lit room, it does the same without the restore step: whatever
-  preset is showing (picked by hand, from a remote, dashboard, or voice
-  assistant) is left alone, only its brightness is pinned to the slot's
-  level. This is the Evening and Night default: a scene picked earlier in
-  the evening — by a Hue Tap Dial or Smart Button, say — still gets dimmed
-  down for the night instead of staying at whatever brightness it was set
-  to, without losing the scene itself.
-
-A preset picked for its colour doesn't necessarily read as dim once applied
-(Hue-style presets are mostly about colour, not brightness) — the
-brightness input pins the slot's look down independently of whichever
-preset is selected, whichever of the first two modes is in effect.
-
-Besides the scene presets, each slot's preset dropdown has some special
-options:
-
-- **No preset — turn off** — the room stays dark in that slot, whatever
-  the motion (e.g. an outdoor lamp during daylight).
-- **Light colour (pick below)** — a plain colour instead of a scene preset,
-  chosen with the colour picker in the slot's **light colour** input right
-  below the dropdown.
-- **White (pick temperature below)** — a white instead of a scene preset,
-  set with the slot's **white temperature** slider (2000–6500 K) below the
-  dropdown.
-
-Both are always applied at the slot's brightness input (a colour carries no
-brightness of its own), whatever the brightness behaviour setting says. The
-light colour and white temperature inputs are ignored while the dropdown
-holds anything else. A blueprint can't show HA's dashboard-style colour
-swatches or the presets' thumbnails — Home Assistant has no blueprint
-selector for either — hence a dropdown plus these two pickers.
-
-Turning either sunrise/sunset toggle on doesn't need a matching change
-anywhere else: the Daytime/Evening/Night decision above and each preset's
-own behaviour setting both read the same boundaries, so they stay in sync
-automatically.
-
-#### Always apply time-of-day preset on motion
+#### Always apply the slot's light on motion
 
 Off by default. The three fallbacks above, and the "already lit" check
 that normally makes motion in a lit room do nothing (beyond the brightness
@@ -527,10 +496,9 @@ previous state. The trade-off is the room's memory: a brightness or scene
 you set by hand (from a dashboard, a voice assistant, or a remote) no longer
 survives the next motion event either.
 
-Each slot's own brightness input and preset behaviour still apply here: its
-"at its own brightness" mode leaves the preset untouched, the other two
-force it to that slot's brightness input (there is no memory left to "keep"
-when this toggle is on, so both act the same here).
+This setting lives under **Advanced**. Each slot's **Keep the preset's own
+brightness** still applies here. A light changed by hand during the current
+slot is still left alone until the next slot (see "Lights changed by hand").
 
 #### Transitions
 
@@ -596,15 +564,15 @@ delay from that moment.
 
 Some players never say "playing" while in use: a Chromecast running a
 streaming app typically reports "paused" or "idle" for a whole evening of
-TV. List those under **Media players that count while on** — the room then
+TV. List those under **Players that count while on** — the room then
 counts as in use for as long as such a player is on at all, switching it on
 cancels a pending dim, and switching it off starts the normal dim delay.
 Such a player can also stay "paused" long after the TV itself is off, so its
-hold is capped by **Longest hold for a player that is on** (2 hours by
+hold is capped by **Longest hold for those players** (2 hours by
 default): after that long without motion the room dims and switches off
 as usual, whatever the player reports.
 
-**Media players to ignore** leaves players out of all of this — for a
+**Players to ignore** leaves players out of all of this — for a
 duplicate entity of the same device (a Music Assistant or Spotify mirror of a
 Chromecast, say) that keeps reporting "playing" after the device is off.
 

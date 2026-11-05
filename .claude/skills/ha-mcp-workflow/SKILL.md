@@ -93,6 +93,6 @@ Say what you changed and what you did **not** test.
 - Frontend resources were cleaned up on 2026-11-05: only cards actually used by
   a dashboard remain (mushroom, auto-entities, card-mod, apexcharts,
   hue-like-light-card, hass-hue-icons, custom-brand-icons). Custom Brand Icons
-  (`phu:` floor icons) is still a manual install, not tracked by the Marketplace.
+  (`phu:` floor icons) was reinstalled by the owner via the Marketplace. ha_mcp_tools is installed from the mirror repo `homeassistant-ai/ha-mcp-integration`; the main repo `homeassistant-ai/ha-mcp` is now in the default catalog and installs the same component (switching is optional, owner informed).
   Before adding a card, check it is not already loaded; before removing one,
   search all dashboards (`ha_config_get_dashboard(query="custom:")`).

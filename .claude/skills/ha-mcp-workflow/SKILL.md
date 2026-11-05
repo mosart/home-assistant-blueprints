@@ -86,3 +86,13 @@ Say what you changed and what you did **not** test.
   read the entity's current labels first if it may have others.
 - The dashboard screenshot beta is not enabled on this instance; visual checks
   are the owner's.
+- Marketplace (2026.11+): installs fail with `warning_not_accepted` until the
+  user the MCP server connects as has accepted the first-run notice. The owner
+  accepting it in their own account did not unblock the MCP user. Removing
+  repositories works without it.
+- Frontend resources were cleaned up on 2026-11-05: only cards actually used by
+  a dashboard remain (mushroom, auto-entities, card-mod, apexcharts,
+  hue-like-light-card, hass-hue-icons, custom-brand-icons). Custom Brand Icons
+  (`phu:` floor icons) is still a manual install, not tracked by the Marketplace.
+  Before adding a card, check it is not already loaded; before removing one,
+  search all dashboards (`ha_config_get_dashboard(query="custom:")`).

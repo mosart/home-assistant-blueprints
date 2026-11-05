@@ -97,6 +97,7 @@ skill before starting:
   attribution, and the verify-and-import step into HA.
 - `presence-lighting-blueprint` — design, rules and pitfalls of
   `rooms/presence_lighting/presence_lighting.yaml` and its six automations.
+- `docs/lighting-dashboard.md` — design and upkeep of the "Verlichting" dashboard.
 - `zha-device-notes` — device facts (Tuya power-on settings, Hue dimmer events,
   Sonoff sensors, light transitions, media players).
 

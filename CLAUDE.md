@@ -84,3 +84,21 @@ command). Validate blueprint YAML by:
   path for unsupported devices/integrations.
 - License is EUPL-1.2 (`SPDX-License-Identifier: EUPL-1.2`); contributions are accepted under the
   same license.
+
+## Skills for working in this repo
+
+Knowledge from earlier sessions lives in `.claude/skills/` — read the matching
+skill before starting:
+
+- `ha-mcp-workflow` — working against the owner's live Home Assistant through the
+  HA MCP tools: the rotating best-practices key, importing blueprints, tool
+  quirks, what HA blueprints can and cannot do.
+- `blueprint-release` — branch/PR/merge flow, why not to force-push, commit
+  attribution, and the verify-and-import step into HA.
+- `presence-lighting-blueprint` — design, rules and pitfalls of
+  `rooms/presence_lighting/presence_lighting.yaml` and its six automations.
+- `zha-device-notes` — device facts (Tuya power-on settings, Hue dimmer events,
+  Sonoff sensors, light transitions, media players).
+
+Update the matching skill whenever a session learns something a later session
+would otherwise have to rediscover.

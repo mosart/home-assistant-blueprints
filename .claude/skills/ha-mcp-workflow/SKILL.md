@@ -77,3 +77,12 @@ Say what you changed and what you did **not** test.
 - Do not leave things half-applied: after a test, restore what you toggled or
   say you left it changed.
 - Ask before destructive/outward steps; otherwise just do it.
+
+## Dashboards
+- The lighting dashboard (`dashboard-verlichting`) design and maintenance rules
+  live in `docs/lighting-dashboard.md` — read it before touching that dashboard.
+- Lamps are found by the `verlichting` label + area; the label is the contract.
+  When setting labels with `ha_set_entity`, `labels=[...]` REPLACES the list —
+  read the entity's current labels first if it may have others.
+- The dashboard screenshot beta is not enabled on this instance; visual checks
+  are the owner's.

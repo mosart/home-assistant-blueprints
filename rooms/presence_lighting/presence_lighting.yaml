@@ -720,6 +720,10 @@ max_exceeded: silent
 
 variables:
   room: !input room
+  # The area selector yields a list, but an instance saved before this input
+  # became multi-select still holds a bare string — accept both. Defined
+  # first: HA renders variables top-down, and room_quiet_since below needs it.
+  room_list: "{{ [room] if room is string else room }}"
   lights: !input lights
   lights_exclude: !input lights_exclude
   force_preset_on_motion: !input force_preset_on_motion
@@ -872,9 +876,6 @@ variables:
   fade_in_seconds: !input fade_in_seconds
   lit_transition: !input lit_transition
   lit_transition_seconds: "{{ [(lit_transition | float) * 60, 300] | min }}"
-  # The area selector yields a list, but an instance saved before this input
-  # became multi-select still holds a bare string — accept both.
-  room_list: "{{ [room] if room is string else room }}"
   # Single source of truth for what this automation controls: the override
   # when set, every light in the areas otherwise. Resolved at run time, so
   # moving a light between areas is picked up without editing anything.

@@ -81,3 +81,11 @@ Chromecast in `media_players_on`, Music Assistant mirror in
 Hal/Keuken evening brightness 15 %, Hal night = Nightlight 3 %; all rooms
 `ease` 120 s at every slot start. Check live values with
 `ha_config_get_automation` instead of trusting this list.
+
+## Pitfall: variable order
+HA renders `variables:` top-down; a variable that uses one defined further down
+sees it as undefined (logged as "Template variable warning: 'x' is undefined",
+no error). Until 2026-11-06 `room_quiet_since` used `room_list` before it was
+defined, so it was always empty and the `media_hold_limit` release never fired.
+`room_list` now sits directly under `room:`. When adding a variable, define it
+below everything it reads.

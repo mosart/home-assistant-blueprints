@@ -96,3 +96,9 @@ Say what you changed and what you did **not** test.
   (`phu:` floor icons) was reinstalled by the owner via the Marketplace. ha_mcp_tools is installed from the mirror repo `homeassistant-ai/ha-mcp-integration`; the main repo `homeassistant-ai/ha-mcp` is now in the default catalog and installs the same component (switching is optional, owner informed).
   Before adding a card, check it is not already loaded; before removing one,
   search all dashboards (`ha_config_get_dashboard(query="custom:")`).
+- Rooms with a Hue Smart Button (Ouderkamer, Kinderkamer): a light group
+  `light.<room>_verlichting_groep` (area + `verlichting` label) is the
+  blueprint's *Reference entity*; per button an `input_boolean` brightness
+  toggle, per room one shared `input_text` slot helper. The group must be
+  excluded from the room's dashboard card and from the "lampen aan" count
+  (see `docs/lighting-dashboard.md`).

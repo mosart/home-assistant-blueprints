@@ -35,6 +35,14 @@ across.
 | Short press after the step-on time, lights on | Switches off |
 | Hold | Dims in steps; direction reverses on every new hold |
 
+Defaults, per slot:
+
+| Slot | Starts | Light |
+| --- | --- | --- |
+| Daytime | 07:00 | White 2700 K, 100 % |
+| Evening | 18:00 | White 2700 K, 3 % |
+| Night | 23:00 | Red, 3 % |
+
 **Switch on with the last chosen slot** (off by default) ignores the clock:
 switching on then always brings back the slot you last stepped to, so a
 "reading light" you picked at night stays the light the button switches on

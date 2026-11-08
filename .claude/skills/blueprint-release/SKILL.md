@@ -36,3 +36,12 @@ Related: the generated scene preset option block between the BEGIN/END markers
 must be regenerated with `scripts/generate_scene_presets_options.py`, never
 hand-edited. Adding a blueprint that uses it means adding its path to
 `BLUEPRINT_PATHS` in that script.
+
+## Adding a required input to a live blueprint
+Every automation on the blueprint fails to load ("Missing input <key>") from
+the moment the new version is imported until its stored inputs get the new
+key. Keep that window short: create any helper the input needs first, import,
+then update every automation in `used_by` straight away (the errors in the
+log from those seconds are expected). Inputs dropped from a blueprint can be
+removed from the stored config at the same time; HA ignores extra stored
+inputs, so leaving them is harmless but confusing.

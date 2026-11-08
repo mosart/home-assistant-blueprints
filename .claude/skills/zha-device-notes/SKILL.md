@@ -50,3 +50,12 @@ back: a plain state/occupancy trigger ignores `unavailable → on`
 A Chromecast running an app reports `paused`/`idle` for a whole evening of TV
 and the Music Assistant mirror of it can keep saying `playing` after the device
 is off — see the presence blueprint's "Media" section for how that is handled.
+
+## Hue Smart Button (ROM001)
+Since 2026-11-08 the blueprint steps through time slots on repeated
+`on_short_release` events and no longer listens to `on_double_press`.
+Unverified on the hardware at the time of writing: that a fast double press
+under ZHA delivers two `on_short_release` events (plus `on_double_press`). If
+a quick double press only ever lands on the first slot, check a trace of the
+automation: only one `short` run means the quirk swallows the second release.
+Both Ouderkamer buttons share `input_text.hue_smart_button_ouderkamer_slot`.

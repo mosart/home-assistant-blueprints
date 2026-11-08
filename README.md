@@ -7,7 +7,7 @@ own setup and shared in case they are useful to someone else.
 
 | Blueprint | Description | Import |
 | --- | --- | --- |
-| [Hue Smart Button (ROM001) via ZHA](#hue-smart-button-rom001-via-zha) | Controller for the Philips Hue Smart Button, paired through ZHA: short press toggles a scene, double press applies a second scene, hold dims in steps. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_smart_button_rom001%2Fhue_smart_button_rom001.yaml) |
+| [Hue Smart Button (ROM001) via ZHA](#hue-smart-button-rom001-via-zha) | Controller for the Philips Hue Smart Button, paired through ZHA: short press switches on with the light of the current time slot, quick repeat presses step to the next slot, a later press switches off; hold dims in steps. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_smart_button_rom001%2Fhue_smart_button_rom001.yaml) |
 | [Hue Tap Dial Switch (RDM002) via ZHA](#hue-tap-dial-switch-rdm002-via-zha) | Controller for the Philips Hue Tap Dial Switch, paired through ZHA: each button short/double press applies a scene, long press can switch off, the dial adjusts brightness. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_tap_dial_rdm002%2Fhue_tap_dial_rdm002.yaml) |
 | [Hue Dimmer Switch (RWL022) via ZHA](#hue-dimmer-switch-rwl022-via-zha) | Controller for the Philips Hue Dimmer Switch, paired through ZHA: the top button toggles on/off (restoring the last scene), the bottom button cycles through scenes, and the brightness buttons step the current brightness. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_dimmer_switch_rwl022%2Fhue_dimmer_switch_rwl022.yaml) |
 | [Presence lighting with scene memory](#presence-lighting-with-scene-memory) | Presence lighting for one or more areas: motion or occupancy restores the last scene, or dims/switches off after being quiet, deferring to whatever scene is already in use instead of forcing a fixed one. | [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Frooms%2Fpresence_lighting%2Fpresence_lighting.yaml) |
@@ -20,13 +20,28 @@ own setup and shared in case they are useful to someone else.
 
 ### Hue Smart Button (ROM001) via ZHA
 
-Controller for the Philips Hue Smart Button, paired through ZHA.
+Controller for the Philips Hue Smart Button, paired through ZHA, built around
+three time slots — **Daytime**, **Evening** and **Night** — each with its own
+light. The slots have the same fields as the
+[Presence lighting](#presence-lighting-with-scene-memory) blueprint (*When ·*
+start time or sunrise/sunset, *What ·* a scene preset, a colour, a white
+temperature or off, and a brightness), so a room's settings can be copied
+across.
 
 | Action | Behaviour |
 | --- | --- |
-| Short press | Toggles between off and a scene preset of your choice |
-| Double press | Applies a second scene preset |
+| Short press, lights off | Switches on with the light of the slot it is now |
+| Short press again within the step-on time (default 2 s) | Steps to the next slot's light: Daytime → Evening → Night → Daytime … |
+| Short press after the step-on time, lights on | Switches off |
 | Hold | Dims in steps; direction reverses on every new hold |
+
+**Switch on with the last chosen slot** (off by default) ignores the clock:
+switching on then always brings back the slot you last stepped to, so a
+"reading light" you picked at night stays the light the button switches on
+with until you step to another one.
+
+A slot whose light is set to *off* is skipped while stepping, and when
+switching on — stepping onto it would look like the button switched off.
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmosart%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fcontrollers%2Fhue_smart_button_rom001%2Fhue_smart_button_rom001.yaml)
 
@@ -36,6 +51,11 @@ Controller for the Philips Hue Smart Button, paired through ZHA.
   the blueprint listens for `zha_event` directly.
 - The [`scene_presets`](https://github.com/Hypfer/hass-scene_presets) custom
   integration, installed through HACS.
+- A **text helper** (`input_text`) as **Slot memory helper**: it holds the
+  slot the last short press chose and when (`<slot>|<time>`). Share one
+  between buttons that control the same lights, so a press on one steps on
+  from the other. *Settings → Devices & services → Helpers → Text*, or
+  "+ Create input_text" in the field.
 - A **toggle helper** (`input_boolean`) per button, used to remember which way
   the next hold will dim. Create one under
   *Settings → Devices & services → Helpers → Toggle*, or inline via the
@@ -47,7 +67,7 @@ Controller for the Philips Hue Smart Button, paired through ZHA.
 
 #### Choosing presets
 
-The preset inputs are a searchable dropdown, labeled and ordered the same
+Each slot's **What · Light** is a searchable dropdown, labeled and ordered the same
 way the Scene Presets panel groups them (`Category — Preset name`) — type
 to filter.
 
@@ -65,10 +85,10 @@ new presets and you want them reflected here, run
 
 #### Remembering the last scene
 
-Every preset a short or double press applies is written to an `input_text`
+Every scene preset a short press applies is written to an `input_text`
 helper named after the **Room** input — `input_text.<room>_laatste_preset`
-(areas joined with `_` for a button spanning more than one). A short press
-that just toggles the lights off writes nothing, same as a room going dark.
+(areas joined with `_` for a button spanning more than one). A colour or
+white slot isn't a preset and writes nothing, and neither does switching off.
 
 This is the same name the `[mosart] Presence lighting with scene memory`
 and `[mosart] Hue Tap Dial Switch (RDM002) via ZHA` blueprints derive from
@@ -91,6 +111,12 @@ from the previous one.
 
 Holding at the very bottom or top does nothing until you release and hold again.
 If the lights are off, a hold always brightens.
+
+A quick double press fires two short-press events (and a separate
+double-press event, which this blueprint ignores): the second one steps to
+the next slot. There is no separate double-press preset any more; an
+automation saved with the old *Preset for short/double press* inputs keeps
+them stored but they do nothing.
 
 ### Hue Tap Dial Switch (RDM002) via ZHA
 

@@ -1,4 +1,5 @@
 import re
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -138,7 +139,9 @@ class GeneratedBlocksStayInSyncTests(unittest.TestCase):
                 re.DOTALL,
             )
             self.assertIsNotNone(match, "markers not found")
-            return match.group(1)
+            # Compare the options, not where they sit: the blocks live at
+            # different nesting depths (ROM001's inside a collapsed section).
+            return textwrap.dedent(match.group(1))
 
         self.assertEqual(extract_block(rom001), extract_block(rdm002))
 

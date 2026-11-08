@@ -45,7 +45,7 @@ Two categories, deliberately kept apart:
 ### Generated content
 
 - Three files share one generated `scene_presets` option list each — the
-  `preset_short`/`preset_double` inputs in
+  `preset_day`/`preset_evening`/`preset_night` slot inputs in
   `controllers/hue_smart_button_rom001/hue_smart_button_rom001.yaml`, the 8
   `button_N_short`/`button_N_double` inputs in
   `controllers/hue_tap_dial_rdm002/hue_tap_dial_rdm002.yaml`, and the 3

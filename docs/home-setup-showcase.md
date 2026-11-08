@@ -119,8 +119,9 @@ don't (and aren't meant to) cover.
 ## Primary bedroom
 
 - **Hue Smart Button**, an instance of the `hue_smart_button_rom001`
-  controller blueprint, for bedside control — short press toggles a scene,
-  hold dims in steps.
+  controller blueprint, for bedside control — short press switches on with
+  the current time slot's light (quick repeats step to the next slot, a later
+  press switches off), hold dims in steps.
 - A paired toggle helper remembers which direction the next "hold" should
   dim in, exactly as the blueprint's own docs describe, plus a second
   toggle for a "make it brighter than the base scene" override.

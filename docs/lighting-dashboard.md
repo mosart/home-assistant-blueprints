@@ -105,8 +105,20 @@ dashboard, using **Hass Hue Icons** (`hue:` prefix, real fixture shapes):
 | Other groups | `hue:bulb-group-classic`, `mdi:string-lights` (tuinlicht) | |
 
 The full icon list is in the `hass-hue-icons.js` bundle of
-arallsopp/hass-hue-icons. `hue:` icons render wherever dashboard resources load
-(web UI, Companion app), not in native OS widgets.
+arallsopp/hass-hue-icons. `hue:` icons render only where that JS has been
+loaded. Dashboard resources load inside Lovelace dashboards only, so HA's
+built-in pages (the *Lights*/home strategy pages, more-info dialogs, entity
+lists in Settings) show an empty icon until the module is also loaded globally
+through `configuration.yaml`, followed by a restart:
+
+```yaml
+frontend:
+  extra_module_url:
+    - /local/community/hass-hue-icons/hass-hue-icons.js
+```
+
+This is a YAML edit the owner makes; the MCP tools cannot change it. Native OS
+widgets never show `hue:` icons.
 
 ## Checklist when lamps change
 

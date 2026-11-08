@@ -481,7 +481,7 @@ blueprint:
         evening_start_use_sunset:
           name: When · Start at sunset
           description: Off — start at the fixed time below.
-          default: true
+          default: false
           selector:
             boolean: {}
         evening_start:
@@ -491,7 +491,7 @@ blueprint:
             time:
         preset_evening:
           name: What · Light
-          default: e71b2ef3-1b15-4c4b-b036-4b3d6efe58f8
+          default: white
           selector: *preset_selector
         evening_light_colour:
           name: What · Colour
@@ -510,7 +510,7 @@ blueprint:
           selector: *own_brightness_selector
         evening_brightness_pct:
           name: What · Brightness
-          default: 50
+          default: 3
           selector: *brightness_pct_selector
     night:
       name: Night
@@ -525,12 +525,12 @@ blueprint:
             time:
         preset_night:
           name: What · Light
-          default: b6f58e22-677f-4670-8677-3dea4ac60383
+          default: color
           selector: *preset_selector
         night_light_colour:
           name: What · Colour
           description: Only for "Light colour (pick below)".
-          default: [255, 110, 84]
+          default: [255, 0, 0]
           selector: *colour_rgb_selector
         night_white_kelvin:
           name: What · White temperature

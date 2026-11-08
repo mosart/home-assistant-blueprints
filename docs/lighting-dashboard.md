@@ -33,7 +33,7 @@ when a lamp is added or replaced.
    - Non-lamps that are `light.*` entities do not, e.g. the kiosk screen
      `light.kiosk_woonkamer_screen`.
    - Light **groups** (`light.keuken_spots`, `light.ouderkamer_verlichting_groep`,
-     `light.tuinlicht`) also carry the label, so the "Alles uit" chip can use
+     `light.kinderkamer_verlichting_groep`, `light.tuinlicht`) also carry the label, so the "Alles uit" chip can use
      it. They are excluded per room card by `entity_id`, so their members are
      not shown twice.
    - When a new group is added to the house, add it to the room card's
@@ -78,7 +78,7 @@ when a lamp is added or replaced.
 | Beganegrond | Keuken | `keuken` | `light.keuken_spots` |
 | Beganegrond | Hal | `hal` | – |
 | Boven | Ouderkamer | `slaapkamer` | `light.ouderkamer_verlichting_groep` |
-| Boven | Kinderkamer | `kinderkamer` | – |
+| Boven | Kinderkamer | `kinderkamer` | `light.kinderkamer_verlichting_groep` |
 | Boven | Trappenhuis | `trappenhuis` | – |
 | Boven | Zolder | `zolder` | – |
 | Buiten | Tuin | `tuin` | `light.tuinlicht` |

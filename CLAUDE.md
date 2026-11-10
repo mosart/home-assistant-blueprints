@@ -98,6 +98,7 @@ skill before starting:
 - `presence-lighting-blueprint` — design, rules and pitfalls of
   `rooms/presence_lighting/presence_lighting.yaml` and its six automations.
 - `docs/lighting-dashboard.md` — design and upkeep of the "Verlichting" dashboard.
+- `docs/security-setup.md` — the alarm/"Beveiliging" setup, its helpers and pitfalls.
 - `zha-device-notes` — device facts (Tuya power-on settings, Hue dimmer events,
   Sonoff sensors, light transitions, media players).
 

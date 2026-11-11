@@ -73,8 +73,10 @@ store them; never rename or remove one without migrating every automation.
 - The `scene_presets` options block is generated (see CLAUDE.md).
 
 ## How the six rooms are set (at time of writing)
-Keuken & Woonkamer & Trappenhuis & Zolder: `force_preset_on_motion: true` (bulbs
-behind wall switches / want a known state). Hal: false. Voordeurlamp uses sun
+Keuken & Hal & Woonkamer & Trappenhuis & Zolder: `force_preset_on_motion: true`
+(bulbs behind wall switches / want a known state). Hal switched to true on
+2026-11-11 so its evening looks like the Keuken (with false it resumed a
+remembered state instead of Relax 15 %). Evening start: Keuken 19:30, Hal 18:30. Voordeurlamp uses sun
 boundaries and an explicit light. Woonkamer: `lights_exclude` the kiosk screen,
 Chromecast in `media_players_on`, Music Assistant mirror in
 `media_players_ignore`. Daytime in Keuken/Hal/Woonkamer is `white` 2500 K;

@@ -102,3 +102,14 @@ Say what you changed and what you did **not** test.
   toggle, per room one shared `input_text` slot helper. The group must be
   excluded from the room's dashboard card and from the "lampen aan" count
   (see `docs/lighting-dashboard.md`).
+
+## `variables:` keys come back sorted
+`ha_config_set_automation` / `_script` store a `variables:` mapping with its keys
+in **alphabetical order**, not the order you sent. Because HA renders keys top
+down, a key that reads another key of the same block can end up before it and
+see it undefined. Put dependent keys in a *separate, later* `- variables:` step
+(verified 2026-11-11 on the morning-summary automation).
+
+## OpenAI in HA
+`ai_task.openai_ai_task` exists but returned "Insufficient funds for OpenAI"
+(2026-11-11). Anything using it must have a non-AI fallback.

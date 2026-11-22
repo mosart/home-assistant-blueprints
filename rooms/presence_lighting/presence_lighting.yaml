@@ -808,22 +808,23 @@ variables:
   media_players_on: !input media_players_on
   media_hold_limit: !input media_hold_limit
   media_players_ignore: !input media_players_ignore
-  # When the room's sensors last went quiet: the earliest moment one sensor
-  # class (motion or occupancy) had all its sensors clear — the same reading
-  # of "quiet" the triggers use. Empty while every class still detects.
+  # When the room's sensors last went quiet: the moment the last motion or
+  # occupancy sensor cleared. Empty while any sensor still detects. A sensor
+  # stuck "on" for 12 hours (a latched SNZB-03P motion entity) is ignored so
+  # it can't hold the room awake; a sensor stuck "off" needs no special case
+  # because only the most recent clear counts — earlier versions took the
+  # earliest-quiet *class*, so a long-silent motion entity made the room look
+  # empty while its occupancy sensor was still detecting someone.
   room_quiet_since: >-
     {%- set ents = room_list | map('area_entities') | sum(start=[])
           | select('match', 'binary_sensor\.') | list -%}
-    {%- set sensors = expand(ents) | selectattr('attributes.device_class', 'defined') | list -%}
-    {%- set ns = namespace(quiet=none) -%}
-    {%- for cls in ['motion', 'occupancy'] -%}
-      {%- set s = sensors | selectattr('attributes.device_class', 'eq', cls) | list -%}
-      {%- if s | count > 0 and s | selectattr('state', 'eq', 'on') | list | count == 0 -%}
-        {%- set t = s | map(attribute='last_changed') | max -%}
-        {%- if ns.quiet is none or t < ns.quiet -%}{%- set ns.quiet = t -%}{%- endif -%}
-      {%- endif -%}
-    {%- endfor -%}
-    {{ ns.quiet if ns.quiet is not none else '' }}
+    {%- set sensors = expand(ents) | selectattr('attributes.device_class', 'defined')
+          | selectattr('attributes.device_class', 'in', ['motion', 'occupancy'])
+          | rejectattr('state', 'in', ['unavailable', 'unknown']) | list -%}
+    {%- set busy = sensors | selectattr('state', 'eq', 'on')
+          | selectattr('last_changed', 'ge', now() - timedelta(hours=12)) | list | count > 0 -%}
+    {%- set clears = sensors | rejectattr('state', 'eq', 'on') | map(attribute='last_changed') | list -%}
+    {{ (clears | max) if (not busy and clears | count > 0) else '' }}
   # When the current slot began, for "a light changed by hand during this
   # slot is left alone" below. A sunrise/sunset boundary is read from the
   # sun's next rising/setting (already tomorrow's once it has passed) minus
@@ -1027,10 +1028,10 @@ triggers:
   # light can stay on all night in an empty room. This template re-checks
   # once a minute (it uses now()) and fires when a light is still on and
   # the room has been quiet longer than the normal dim (+ switch-off) delay
-  # plus 2 minutes of slack, so it never races the normal path. "Quiet" is
-  # read the same way the triggers above work: either sensor class
-  # (motion or occupancy) having all its sensors clear counts, so a stuck
-  # motion sensor next to a working occupancy sensor doesn't block it. The
+  # plus 2 minutes of slack, so it never races the normal path. "Quiet"
+  # means no motion/occupancy sensor detects, counted from the most recent
+  # clear; a sensor latched "on" for 12 hours is ignored so it can't block
+  # this, and one stuck "off" can't make an occupied room look empty. The
   # clock starts at whichever came last: the room going quiet, or a light
   # being switched on — a light switched on in an empty room also goes
   # through the normal dim and switch-off, just counted from that moment.
@@ -1050,14 +1051,12 @@ triggers:
       {%- set lit = lights | selectattr('state', 'eq', 'on') | list -%}
       {%- set sensors = expand(area_ents | select('match', 'binary_sensor\.') | list)
             | selectattr('attributes.device_class', 'defined') | list -%}
-      {%- set ns = namespace(quiet=none) -%}
-      {%- for cls in ['motion', 'occupancy'] -%}
-        {%- set s = sensors | selectattr('attributes.device_class', 'eq', cls) | list -%}
-        {%- if s | count > 0 and s | selectattr('state', 'eq', 'on') | list | count == 0 -%}
-          {%- set t = s | map(attribute='last_changed') | max -%}
-          {%- if ns.quiet is none or t < ns.quiet -%}{%- set ns.quiet = t -%}{%- endif -%}
-        {%- endif -%}
-      {%- endfor -%}
+      {%- set sensors = sensors | selectattr('attributes.device_class', 'in', ['motion', 'occupancy'])
+            | rejectattr('state', 'in', ['unavailable', 'unknown']) | list -%}
+      {%- set busy_sensor = sensors | selectattr('state', 'eq', 'on')
+            | selectattr('last_changed', 'ge', now() - timedelta(hours=12)) | list | count > 0 -%}
+      {%- set clears = sensors | rejectattr('state', 'eq', 'on') | map(attribute='last_changed') | list -%}
+      {%- set ns = namespace(quiet=(clears | max) if (not busy_sensor and clears | count > 0) else none) -%}
       {%- set listed = expand(tv_media_on) -%}
       {%- set area_media = expand(area_ents | select('match', 'media_player\.') | list)
             | rejectattr('entity_id', 'in', tv_media_ignore) | list -%}

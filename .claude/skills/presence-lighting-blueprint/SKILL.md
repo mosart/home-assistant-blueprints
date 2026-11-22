@@ -91,3 +91,12 @@ no error). Until 2026-11-06 `room_quiet_since` used `room_list` before it was
 defined, so it was always empty and the `media_hold_limit` release never fired.
 `room_list` now sits directly under `room:`. When adding a variable, define it
 below everything it reads.
+
+## "Quiet" must mean every sensor is clear (fixed 2026-11-22)
+The `missed_off` safety net and `room_quiet_since` used to treat a room as
+quiet when *either* sensor class (motion or occupancy) was all clear. The
+Keuken's raw `binary_sensor.sonoff_motion_keuken` had not changed for hours
+(stuck `off`), so the room counted as quiet while `…_bezetting` was `on`, and
+`missed_off` dimmed and switched the lights off with someone working there.
+Now: quiet only when no motion/occupancy sensor is `on`, counted from the most
+recent clear; a sensor latched `on` for 12 h is ignored.

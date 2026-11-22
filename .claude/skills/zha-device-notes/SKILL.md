@@ -41,10 +41,22 @@ StepMode enum, not "up"/"down". Cycling presets needs the helper
 `input_text.<room>_laatste_preset`.
 
 ## Sonoff SNZB-03P
-The raw motion `binary_sensor` latches on after the first detection; use the
-**occupancy** (`…_bezetting`) entity. Battery sensors drop to `unavailable` and
-back: a plain state/occupancy trigger ignores `unavailable → on`
-(see `recovery_sensors` in the presence blueprint).
+**Read this before diagnosing any motion/presence problem.** On this ZHA
+install the raw motion `binary_sensor` is unreliable in *both* directions: it
+latches `on` after a detection, and it can also sit at `off` for hours while
+the room is occupied (2026-11-22, Keuken: off since 19:45 while
+`…_bezetting` was on, which let the presence blueprint switch the light off).
+Only the **occupancy** (`…_bezetting`) entity is trustworthy.
+
+Since 2026-11-22 the raw entities are **disabled** in the entity registry, so
+area-based automations only see occupancy: `binary_sensor.sonoff_motion_hal`,
+`…_keuken`, `…_trappenhuis`, `…_zolder` and
+`binary_sensor.sonoff_beweging_bed_onder`. Do the same for any new SNZB-03P.
+A motion sensor of another brand that clears properly can stay enabled.
+
+Battery sensors drop to `unavailable` and back: a plain state/occupancy
+trigger ignores `unavailable → on` (see `recovery_sensors` in the presence
+blueprint).
 
 ## Media players
 A Chromecast running an app reports `paused`/`idle` for a whole evening of TV

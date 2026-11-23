@@ -100,3 +100,13 @@ Keuken's raw `binary_sensor.sonoff_motion_keuken` had not changed for hours
 `missed_off` dimmed and switched the lights off with someone working there.
 Now: quiet only when no motion/occupancy sensor is `on`, counted from the most
 recent clear; a sensor latched `on` for 12 h is ignored.
+
+## Power-up is not a hand change (2026-11-23)
+A light whose `last_updated` is after the slot start is treated as "set by
+hand" and left alone until the next slot. A bulb behind a wall switch (Zolder
+Overloop, Trust ZLL, no start-up setting in ZHA) comes back at full 254 with a
+context that has neither `user_id` nor `parent_id`; that looked like a hand
+change, so motion at 01:39 didn't bring it down to the night level. Now a lit
+light at brightness ≥ 250 with an empty context counts as power-up and gets
+the slot's light on motion. Dashboard/voice changes carry a `user_id`,
+remote/automation changes a `parent_id`, so they stay "by hand".

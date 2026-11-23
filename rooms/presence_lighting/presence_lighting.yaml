@@ -1158,6 +1158,12 @@ actions:
                           # (remote, dashboard, voice) — it is left alone for
                           # the rest of the slot instead of being pulled back
                           # on every motion; the next slot takes over again.
+                          # Exception: a light that came on at (near) full
+                          # brightness with no user and no automation behind
+                          # the change got its power back — a wall switch or
+                          # a power cut, where the bulb starts at full white.
+                          # That is not a hand setting, so the slot's light is
+                          # applied to it like to any other lit light.
                           - &force_apply_slot
                             if:
                               - condition: template
@@ -1180,9 +1186,11 @@ actions:
                                     {%- if not dimmed_by_us -%}
                                       {%- for s in expand(light_entities) | selectattr('state', 'eq', 'on') -%}
                                         {%- set b = s.attributes.brightness -%}
+                                        {%- set power_up = s.context.user_id is none and s.context.parent_id is none
+                                              and (b | int(0)) >= 250 -%}
                                         {%- if ((slot_brightness | int) < 0 or b is none
                                               or ((b | int) - (slot_brightness | int)) | abs > 2)
-                                              and s.last_updated < (slot_started_at | as_datetime) -%}
+                                              and (s.last_updated < (slot_started_at | as_datetime) or power_up) -%}
                                           {%- set ns.out = ns.out + [s.entity_id] -%}
                                         {%- endif -%}
                                       {%- endfor -%}
@@ -1574,9 +1582,11 @@ actions:
                             {%- set ns = namespace(out=[]) -%}
                             {%- for s in expand(light_entities) -%}
                               {%- set b = s.attributes.brightness -%}
+                              {%- set power_up = s.state == 'on' and s.context.user_id is none
+                                    and s.context.parent_id is none and (b | int(0)) >= 250 -%}
                               {%- if (s.state != 'on' or b is none
                                     or ((b | int) - (slot_brightness | int)) | abs > 2)
-                                    and s.last_updated < (slot_started_at | as_datetime) -%}
+                                    and (s.last_updated < (slot_started_at | as_datetime) or power_up) -%}
                                 {%- set ns.out = ns.out + [s.entity_id] -%}
                               {%- endif -%}
                             {%- endfor -%}

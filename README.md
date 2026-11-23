@@ -562,6 +562,12 @@ motion. At the next slot boundary (evening → night, say) the automation
 takes over again. A slot whose preset keeps its own brightness is applied
 to a lit room once per slot, not on every motion.
 
+One exception: a light that switched on by itself at (near) full brightness —
+no user and no automation behind the change, the signature of a bulb getting
+its power back from a wall switch or after a power cut — is not treated as
+set by hand. The next motion gives it the slot's light, so a hallway lamp
+behind a switch doesn't stay at full white all night.
+
 #### Missed switch-offs
 
 The "no motion" countdown runs inside Home Assistant and is lost whenever
